@@ -1,19 +1,31 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Switch } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Switch, TouchableOpacity } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { StudentStackParamList } from '../../navigation/types';
 import { theme } from '../../theme';
-import { Header, Card, Button, FairCompetitionCard, StatCard } from '../../components/common';
+import { Header, Card, Button, FairCompetitionCard, StatCard, Badge as StatusBadge } from '../../components/common';
 import { useAuth } from '../../context/AuthContext';
 import { mockStudentPerformance } from '../../data/mockData';
 import { SensoryFeedback } from '../../utils/audioFeedback';
+import { AchievementEngine, AchievementBadge } from '../../utils/achievementEngine';
 
 type Props = NativeStackScreenProps<StudentStackParamList, 'Profile'>;
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, logout, switchRole } = useAuth();
   const [hapticsEnabled, setHapticsEnabled] = useState(SensoryFeedback.isEnabled());
+  const [selectedBadge, setSelectedBadge] = useState<AchievementBadge | null>(null);
+
+  const achievements = AchievementEngine.evaluateAchievements({
+    overallScore: mockStudentPerformance.overallScore,
+    overallAccuracy: mockStudentPerformance.overallAccuracy,
+    bestStreak: mockStudentPerformance.bestStreak,
+    totalSprints: mockStudentPerformance.totalSprints,
+    currentRank: mockStudentPerformance.currentRank,
+  });
+
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
 
   const handleToggleHaptics = (val: boolean) => {
     setHapticsEnabled(val);
@@ -79,6 +91,106 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             color={theme.colors.purple}
           />
         </View>
+
+        {/* Sprint Trophies & Achievements Shelf */}
+        <View style={styles.trophyHeaderRow}>
+          <Text style={styles.sectionHeading}>Trophies & Badges</Text>
+          <StatusBadge
+            label={`${unlockedCount} / ${achievements.length} Unlocked`}
+            variant="cyan"
+            size="sm"
+          />
+        </View>
+
+        <Card variant="elevated" style={styles.badgeShelfCard}>
+          <View style={styles.badgeGrid}>
+            {achievements.map((badge) => {
+              const isSelected = selectedBadge?.id === badge.id;
+              return (
+                <TouchableOpacity
+                  key={badge.id}
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedBadge(isSelected ? null : badge)}
+                  style={[
+                    styles.badgeItem,
+                    badge.unlocked ? styles.badgeItemUnlocked : styles.badgeItemLocked,
+                    isSelected && styles.badgeItemSelected,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.badgeIconCircle,
+                      { backgroundColor: badge.unlocked ? `${badge.color}20` : '#F1F5F9' },
+                    ]}
+                  >
+                    <Ionicons
+                      name={badge.icon as any}
+                      size={24}
+                      color={badge.unlocked ? badge.color : theme.colors.textMuted}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.badgeTitle,
+                      { color: badge.unlocked ? theme.colors.textPrimary : theme.colors.textMuted },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {badge.title}
+                  </Text>
+                  <View
+                    style={[
+                      styles.badgePill,
+                      {
+                        backgroundColor: badge.unlocked ? `${badge.color}15` : '#E2E8F0',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.badgePillText,
+                        { color: badge.unlocked ? badge.color : theme.colors.textSecondary },
+                      ]}
+                    >
+                      {badge.progressLabel}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Active Badge Inspector Detail */}
+          {selectedBadge && (
+            <View style={styles.badgeDetailBox}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons
+                  name={selectedBadge.icon as any}
+                  size={20}
+                  color={selectedBadge.unlocked ? selectedBadge.color : theme.colors.textMuted}
+                />
+                <Text style={styles.badgeDetailTitle}>{selectedBadge.title}</Text>
+                <StatusBadge
+                  label={selectedBadge.unlocked ? 'CLAIMED' : 'IN PROGRESS'}
+                  variant={selectedBadge.unlocked ? 'green' : 'muted'}
+                  size="sm"
+                />
+              </View>
+              <Text style={styles.badgeDetailDesc}>{selectedBadge.description}</Text>
+              <View style={styles.progressBarBg}>
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    {
+                      width: `${selectedBadge.progress}%`,
+                      backgroundColor: selectedBadge.color,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          )}
+        </Card>
 
         {/* Battle Sensory Preferences */}
         <Text style={styles.sectionHeading}>Battle Preferences</Text>
@@ -187,6 +299,98 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: theme.spacing.sm,
+  },
+  trophyHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.xs,
+  },
+  badgeShelfCard: {
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  badgeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  badgeItem: {
+    width: '31%',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1.5,
+  },
+  badgeItemUnlocked: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+    ...theme.shadows.sm,
+  },
+  badgeItemLocked: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#F1F5F9',
+    opacity: 0.7,
+  },
+  badgeItemSelected: {
+    borderColor: theme.colors.primary,
+    backgroundColor: '#EFF6FF',
+  },
+  badgeIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  badgeTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  badgePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  badgePillText: {
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  badgeDetailBox: {
+    marginTop: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    backgroundColor: '#F8FAFC',
+    borderRadius: theme.borderRadius.sm,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  badgeDetailTitle: {
+    fontSize: theme.typography.sizes.sm,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    flex: 1,
+  },
+  badgeDetailDesc: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginVertical: 4,
+  },
+  progressBarBg: {
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
   },
   prefCard: {
     padding: theme.spacing.md,

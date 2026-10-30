@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -14,6 +14,7 @@ import {
   Badge,
   FairCompetitionCard,
 } from '../../components/common';
+import { SoloSpeedModal } from '../../components/student/SoloSpeedModal';
 import { useAuth } from '../../context/AuthContext';
 import { mockStudentPerformance } from '../../data/mockData';
 import { SprintApi } from '../../services/api/sprintApi';
@@ -21,7 +22,8 @@ import { SprintApi } from '../../services/api/sprintApi';
 export const StudentDashboardScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<StudentStackParamList>>();
   const { user, switchRole } = useAuth();
-  const [performance, setPerformance] = React.useState<any>(mockStudentPerformance);
+  const [performance, setPerformance] = useState<any>(mockStudentPerformance);
+  const [showSoloModal, setShowSoloModal] = useState<boolean>(false);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -72,6 +74,7 @@ export const StudentDashboardScreen: React.FC = () => {
               <Ionicons name="flash" size={32} color={theme.colors.primary} />
             </View>
           </View>
+          
           <Button
             title="JOIN SPRINT NOW"
             variant="primary"
@@ -80,6 +83,16 @@ export const StudentDashboardScreen: React.FC = () => {
             onPress={() => navigation.navigate('JoinSprint')}
             fullWidth
             style={styles.joinBtn}
+          />
+
+          <Button
+            title="⚡ SOLO SPEED BLITZ (OFFLINE)"
+            variant="outline"
+            size="md"
+            leftIcon={<Ionicons name="stopwatch-outline" size={18} color={theme.colors.primary} />}
+            onPress={() => setShowSoloModal(true)}
+            fullWidth
+            style={styles.soloBtn}
           />
         </Card>
 
@@ -183,6 +196,12 @@ export const StudentDashboardScreen: React.FC = () => {
         {/* Fair Play Shield Section */}
         <FairCompetitionCard style={styles.fairPlay} />
       </ScrollView>
+
+      {/* Offline Solo Speed Blitz Practice Modal */}
+      <SoloSpeedModal
+        visible={showSoloModal}
+        onClose={() => setShowSoloModal(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -233,6 +252,11 @@ const styles = StyleSheet.create({
   joinBtn: {
     marginTop: theme.spacing.xs,
     ...theme.shadows.sm,
+  },
+  soloBtn: {
+    marginTop: theme.spacing.xs,
+    backgroundColor: '#FFFFFF',
+    borderColor: theme.colors.primary,
   },
   sectionHeading: {
     fontSize: theme.typography.sizes.xs,
