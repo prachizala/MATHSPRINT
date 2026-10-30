@@ -19,6 +19,7 @@ import { formatPoints } from '../../utils/formatters';
 import { SprintApi } from '../../services/api/sprintApi';
 import { RealtimeService } from '../../services/firebase/realtimeService';
 import { Question } from '../../types';
+import { SensoryFeedback } from '../../utils/audioFeedback';
 
 type Props = NativeStackScreenProps<StudentStackParamList, 'LiveQuiz'>;
 
@@ -105,6 +106,9 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
       if (isPausedRef.current) return;
       const remaining = Math.max(0, Math.floor((endTimeRef.current - Date.now()) / 1000));
       setRemainingTime(remaining);
+      if (remaining === 10 || remaining === 5) {
+        SensoryFeedback.triggerClockWarning();
+      }
       if (remaining <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
         handleSprintFinish();
@@ -136,14 +140,24 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
       setScore(serverResult.totalScore);
       setStreak(serverResult.streak);
       if (serverResult.correct) {
+        SensoryFeedback.triggerCorrectAnswer();
+        if (serverResult.streak >= 2) {
+          SensoryFeedback.triggerStreakMilestone(serverResult.streak);
+        }
         setCorrectCount((prev) => prev + 1);
         if (serverResult.streak > bestStreak) setBestStreak(serverResult.streak);
+      } else {
+        SensoryFeedback.triggerIncorrectAnswer();
       }
     } catch (err) {
       // Fallback local scoring if offline
       const isCorrect = selectedOption === currentQuestion.answer;
       if (isCorrect) {
+        SensoryFeedback.triggerCorrectAnswer();
         const newStreak = streak + 1;
+        if (newStreak >= 2) {
+          SensoryFeedback.triggerStreakMilestone(newStreak);
+        }
         const speedBonus = responseTimeMs < 4000 ? 20 : 0;
         const streakBonus = newStreak * 10;
         const pointsEarned = 100 + speedBonus + streakBonus;
@@ -152,6 +166,7 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
         setCorrectCount((prev) => prev + 1);
         if (newStreak > bestStreak) setBestStreak(newStreak);
       } else {
+        SensoryFeedback.triggerIncorrectAnswer();
         setStreak(0);
       }
     }

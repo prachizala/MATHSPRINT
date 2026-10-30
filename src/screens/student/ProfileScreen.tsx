@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Switch } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { StudentStackParamList } from '../../navigation/types';
@@ -7,11 +7,21 @@ import { theme } from '../../theme';
 import { Header, Card, Button, FairCompetitionCard, StatCard } from '../../components/common';
 import { useAuth } from '../../context/AuthContext';
 import { mockStudentPerformance } from '../../data/mockData';
+import { SensoryFeedback } from '../../utils/audioFeedback';
 
 type Props = NativeStackScreenProps<StudentStackParamList, 'Profile'>;
 
 export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, logout, switchRole } = useAuth();
+  const [hapticsEnabled, setHapticsEnabled] = useState(SensoryFeedback.isEnabled());
+
+  const handleToggleHaptics = (val: boolean) => {
+    setHapticsEnabled(val);
+    SensoryFeedback.setEnabled(val);
+    if (val) {
+      SensoryFeedback.triggerCorrectAnswer();
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -69,6 +79,26 @@ export const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             color={theme.colors.purple}
           />
         </View>
+
+        {/* Battle Sensory Preferences */}
+        <Text style={styles.sectionHeading}>Battle Preferences</Text>
+        <Card variant="elevated" style={styles.prefCard}>
+          <View style={styles.prefRow}>
+            <View style={styles.prefTextCol}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="phone-portrait-outline" size={18} color={theme.colors.primary} />
+                <Text style={styles.prefTitle}>Haptic Sensory Feedback</Text>
+              </View>
+              <Text style={styles.prefDesc}>Vibrate on correct answers, streak fire bonuses, and 10s countdown</Text>
+            </View>
+            <Switch
+              value={hapticsEnabled}
+              onValueChange={handleToggleHaptics}
+              trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+              thumbColor="#FFF"
+            />
+          </View>
+        </Card>
 
         {/* Non-invasive Fair Competition Protection */}
         <FairCompetitionCard style={styles.fairPlay} />
@@ -157,6 +187,30 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: theme.spacing.sm,
+  },
+  prefCard: {
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  prefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  prefTextCol: {
+    flex: 1,
+  },
+  prefTitle: {
+    fontSize: theme.typography.sizes.sm,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+  },
+  prefDesc: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+    lineHeight: 16,
   },
   fairPlay: {
     marginVertical: theme.spacing.md,
