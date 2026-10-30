@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
+import { ServerConfigModal } from './ServerConfigModal';
 
 export interface HeaderProps {
   title: string;
@@ -10,6 +11,7 @@ export interface HeaderProps {
   onBack?: () => void;
   rightElement?: React.ReactNode;
   style?: ViewStyle;
+  showServerConfig?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -19,7 +21,10 @@ export const Header: React.FC<HeaderProps> = ({
   onBack,
   rightElement,
   style,
+  showServerConfig = true,
 }) => {
+  const [serverModalOpen, setServerModalOpen] = useState(false);
+
   return (
     <View style={[styles.container, style]}>
       <View style={styles.leftRow}>
@@ -44,7 +49,21 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </View>
       </View>
-      {rightElement && <View style={styles.rightContainer}>{rightElement}</View>}
+      <View style={styles.rightContainer}>
+        {showServerConfig && (
+          <TouchableOpacity
+            style={styles.serverButton}
+            onPress={() => setServerModalOpen(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Server connection settings"
+          >
+            <Ionicons name="hardware-chip-outline" size={17} color={theme.colors.textSecondary} />
+            <View style={styles.serverDot} />
+          </TouchableOpacity>
+        )}
+        {rightElement}
+      </View>
+      <ServerConfigModal visible={serverModalOpen} onClose={() => setServerModalOpen(false)} />
     </View>
   );
 };
@@ -83,6 +102,28 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   rightContainer: {
-    marginLeft: theme.spacing.md,
+    marginLeft: theme.spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  serverButton: {
+    padding: 6,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  serverDot: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.green,
   },
 });

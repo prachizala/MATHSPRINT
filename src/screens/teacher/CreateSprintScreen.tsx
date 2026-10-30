@@ -15,7 +15,17 @@ export const CreateSprintScreen: React.FC<Props> = ({ navigation }) => {
   const [topic, setTopic] = useState('Arithmetic • Logic • Algebra');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [questionCount, setQuestionCount] = useState('10');
+  const [duration, setDuration] = useState<number>(120);
   const [loading, setLoading] = useState(false);
+
+  const durationOptions = [
+    { label: '60s Blitz', sec: 60 },
+    { label: '90s Rapid', sec: 90 },
+    { label: '120s Standard', sec: 120 },
+    { label: '180s Deep', sec: 180 },
+  ];
+
+  const questionPresets = ['5', '10', '15', '20'];
 
   const handleCreateAndLaunch = async () => {
     setLoading(true);
@@ -25,7 +35,7 @@ export const CreateSprintScreen: React.FC<Props> = ({ navigation }) => {
         topic,
         difficulty,
         questionCount: parseInt(questionCount, 10) || 10,
-        timeLimit: 120,
+        timeLimit: duration,
       });
 
       const sprintId = sprint?.sprintId || `sprint-${Date.now()}`;
@@ -88,8 +98,21 @@ export const CreateSprintScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
           {/* 4. Number of Questions */}
+          <Text style={styles.fieldLabel}>Number of Questions</Text>
+          <View style={styles.presetChipRow}>
+            {questionPresets.map((cnt) => (
+              <Button
+                key={cnt}
+                title={`${cnt} Qs`}
+                variant={questionCount === cnt ? 'primary' : 'ghost'}
+                size="sm"
+                onPress={() => setQuestionCount(cnt)}
+                style={styles.presetChipBtn}
+              />
+            ))}
+          </View>
           <Input
-            label="Number of Questions"
+            label="Or Custom Count"
             value={questionCount}
             onChangeText={setQuestionCount}
             keyboardType="number-pad"
@@ -97,14 +120,36 @@ export const CreateSprintScreen: React.FC<Props> = ({ navigation }) => {
             leftIcon={<Ionicons name="list-outline" size={18} color={theme.colors.textMuted} />}
           />
 
-          {/* 5. Fixed Time = 2 MINUTES */}
+          {/* 5. Sprint Duration Presets */}
+          <Text style={styles.fieldLabel}>Battle Duration</Text>
+          <View style={styles.presetChipRow}>
+            {durationOptions.map((opt) => (
+              <Button
+                key={opt.sec}
+                title={opt.label}
+                variant={duration === opt.sec ? 'secondary' : 'ghost'}
+                size="sm"
+                onPress={() => setDuration(opt.sec)}
+                style={styles.presetChipBtn}
+              />
+            ))}
+          </View>
+
           <View style={styles.timeBox}>
             <View style={styles.timeInfo}>
-              <Text style={styles.timeLabel}>BATTLE DURATION</Text>
-              <Text style={styles.timeValue}>⏱ 02:00 (2 MINUTES)</Text>
-              <Text style={styles.timeDesc}>Standard high-intensity sprint battle clock</Text>
+              <Text style={styles.timeLabel}>SELECTED BATTLE CLOCK</Text>
+              <Text style={styles.timeValue}>
+                ⏱ {Math.floor(duration / 60)}:{(duration % 60).toString().padStart(2, '0')} ({duration} SECONDS)
+              </Text>
+              <Text style={styles.timeDesc}>
+                {duration <= 60
+                  ? 'High-speed rapid-fire sprint'
+                  : duration === 120
+                  ? 'Standard competitive classroom battle'
+                  : 'Extended focus sprint for deep problem solving'}
+              </Text>
             </View>
-            <Badge label="LOCKED" variant="cyan" size="sm" />
+            <Badge label={duration === 120 ? 'RECOMMENDED' : 'CUSTOM'} variant="cyan" size="sm" />
           </View>
 
           {/* Question Set Summary */}
@@ -180,6 +225,14 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   diffBtn: {
+    flex: 1,
+  },
+  presetChipRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: theme.spacing.sm,
+  },
+  presetChipBtn: {
     flex: 1,
   },
   timeBox: {

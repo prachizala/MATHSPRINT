@@ -11,6 +11,41 @@ export interface ApiResponse<T = any> {
 export class ApiClient {
   private static baseUrl = config.apiUrl;
 
+  static getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  static setBaseUrl(newUrl: string): void {
+    let clean = newUrl.trim();
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = `http://${clean}`;
+    }
+    if (!clean.endsWith('/api') && !clean.includes('/api/')) {
+      clean = clean.replace(/\/+$/, '') + '/api';
+    }
+    this.baseUrl = clean;
+  }
+
+  static async testConnection(targetUrl?: string): Promise<{ ok: boolean; latencyMs?: number; error?: string }> {
+    const root = targetUrl || this.baseUrl;
+    const cleanRoot = root.replace(/\/api\/?$/, '');
+    const healthUrl = `${cleanRoot}/api/health`;
+    const start = Date.now();
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(healthUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      const latencyMs = Date.now() - start;
+      if (res.ok) {
+        return { ok: true, latencyMs };
+      }
+      return { ok: false, error: `HTTP ${res.status}` };
+    } catch (e: any) {
+      return { ok: false, error: e.message || 'Connection failed' };
+    }
+  }
+
   private static async request<T>(
     endpoint: string,
     options: RequestInit = {}

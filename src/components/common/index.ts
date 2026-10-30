@@ -19,6 +19,7 @@ export * from './QuestionOption';
 export * from './EmptyState';
 export * from './ErrorState';
 export * from './FairCompetitionCard';
+export * from './ServerConfigModal';
 
 // Named aliases for clean prompt specification
 export { Header as AppHeader } from './Header';
