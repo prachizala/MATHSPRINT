@@ -1,6 +1,7 @@
 {
   "name": "mathsprint",
   "version": "1.0.0",
+  "description": "MATHSPRINT - High-intensity 2-minute competitive classroom math battle arena with real-time telemetry, learning analytics, and adaptive practice.",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",

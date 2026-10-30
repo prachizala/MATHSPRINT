@@ -3,6 +3,7 @@
     "name": "MATHSPRINT",
     "slug": "mathsprint",
     "version": "1.0.0",
+    "description": "High-intensity 2-minute competitive classroom math battle arena with real-time telemetry, learning analytics, and adaptive practice.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
