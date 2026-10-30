@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isTeacher() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'teacher' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
+      );
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    // Questions Bank
+    // Read: authenticated users
+    // Write: teachers only
+    match /questions/{questionId} {
+      allow read: if isAuthenticated();
+      allow write: if isTeacher();
+    }
+
+    // Sprints Collection
+    // Read: all authenticated users
+    // Create / Update: teachers only
+    match /sprints/{sprintId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isTeacher();
+      allow delete: if false;
+    }
+
+    // Lobbies Collection
+    // Read: authenticated users
+    // Create / Update: teachers only
+    match /lobbies/{lobbyId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isTeacher();
+      allow delete: if false;
+    }
+
+    // Answers Collection
+    // CRITICAL SECURITY: Answers are written and validated strictly through the backend server (Firebase Admin SDK).
+    // Client direct writes are forbidden to prevent client-side tampering, score injection, and answer falsification.
+    match /answers/{answerId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isTeacher()
+      );
+      allow write: if false;
+    }
+
+    // Scores Collection
+    // CRITICAL SECURITY: Scores are calculated server-side and written via Admin SDK.
+    // Client can read scores for the leaderboard.
+    match /scores/{scoreId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+  }
+}

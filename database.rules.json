@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "liveSprints": {
+      "$sprintId": {
+        ".read": "auth != null",
+
+        "participants": {
+          "$studentId": {
+            ".read": "auth != null",
+            ".write": "auth != null && (auth.uid === $studentId || auth.token.role === 'teacher')"
+          }
+        },
+
+        "status": {
+          ".write": false
+        },
+        "startTime": {
+          ".write": false
+        },
+        "endTime": {
+          ".write": false
+        },
+        "leaderboard": {
+          ".write": false
+        },
+        "progress": {
+          ".write": false
+        }
+      }
+    }
+  }
+}

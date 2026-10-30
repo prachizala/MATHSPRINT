@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isTeacher() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'teacher' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
+      );
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    // Questions Bank
+    match /questions/{questionId} {
+      allow read: if isAuthenticated();
+      allow write: if isTeacher();
+    }
+
+    // Sprints Collection
+    match /sprints/{sprintId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isTeacher();
+      allow delete: if false;
+    }
+
+    // Lobbies Collection
+    match /lobbies/{lobbyId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isTeacher();
+      allow delete: if false;
+    }
+
+    // Answers Collection
+    // Validated strictly through backend server Admin SDK
+    match /answers/{answerId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isTeacher()
+      );
+      allow write: if false;
+    }
+
+    // Scores Collection
+    // Calculated server-side and written via Admin SDK
+    match /scores/{scoreId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+  }
+}
