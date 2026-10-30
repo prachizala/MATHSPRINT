@@ -38,6 +38,8 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [speedBonusAwarded, setSpeedBonusAwarded] = useState(false);
+  const [teacherAnnouncement, setTeacherAnnouncement] = useState<{ message: string; timestamp: number } | null>(null);
+  const [rivalryText, setRivalryText] = useState<string>('');
 
   const questionStartTimeRef = useRef(Date.now());
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -96,6 +98,53 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
     };
   }, [lobbyId]);
 
+  // Periodic Telemetry: Teacher Announcement & Head-to-Head Rivalry
+  useEffect(() => {
+    let isMounted = true;
+
+    const pollLiveTelemetry = async () => {
+      try {
+        // 1. Check for active Teacher Broadcast Announcement
+        const ann = await SprintApi.getAnnouncement(lobbyId);
+        if (isMounted && ann?.message) {
+          if (Date.now() - ann.timestamp < 45000) {
+            setTeacherAnnouncement(ann);
+          } else {
+            setTeacherAnnouncement(null);
+          }
+        }
+
+        // 2. Head-to-Head Rivalry Telemetry
+        const lb = await SprintApi.getSprintLeaderboard(lobbyId);
+        if (isMounted && Array.isArray(lb) && lb.length >= 2) {
+          const myIdx = lb.findIndex(
+            (p: any) => p.studentId === user?.userId || p.name === user?.name
+          );
+          if (myIdx === 0) {
+            // Rank #1
+            const nextContestant = lb[1];
+            const gap = Math.max(10, (lb[0].score || score) - (nextContestant.score || 0));
+            setRivalryText(`👑 DEFENDING LEAD: ${nextContestant.name} is ${gap} PTS behind!`);
+          } else if (myIdx > 0) {
+            const competitorAbove = lb[myIdx - 1];
+            const gap = Math.max(10, (competitorAbove.score || 0) - score);
+            setRivalryText(`⚔️ RIVAL ALERT: ${competitorAbove.name} (#${myIdx}) is +${gap} PTS ahead!`);
+          } else {
+            const leader = lb[0];
+            setRivalryText(`⚔️ TARGET PODIUM: Chase #1 ${leader.name} (${leader.score} PTS)`);
+          }
+        }
+      } catch (_) {}
+    };
+
+    pollLiveTelemetry();
+    const interval = setInterval(pollLiveTelemetry, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [lobbyId, score]);
+
   const totalQuestions = questions.length;
   const currentQuestion = questions[currentIndex];
 
@@ -131,65 +180,66 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
     }
 
     try {
-      const serverResult = await SprintApi.submitAnswer(lobbyId, {
+      const response = await SprintApi.submitAnswer(lobbyId, {
         questionId: currentQuestion.questionId,
         selectedAnswer: selectedOption,
         responseTimeMs,
       });
 
-      setScore(serverResult.totalScore);
-      setStreak(serverResult.streak);
-      if (serverResult.correct) {
-        SensoryFeedback.triggerCorrectAnswer();
-        if (serverResult.streak >= 2) {
-          SensoryFeedback.triggerStreakMilestone(serverResult.streak);
+      if (response && response.correct !== undefined) {
+        if (response.correct) {
+          SensoryFeedback.triggerCorrectAnswer();
+          const newStreak = (response.streak !== undefined) ? response.streak : streak + 1;
+          setStreak(newStreak);
+          if (newStreak > bestStreak) setBestStreak(newStreak);
+          if (newStreak >= 2) {
+            SensoryFeedback.triggerStreakMilestone(newStreak);
+          }
+          setCorrectCount((prev) => prev + 1);
+        } else {
+          SensoryFeedback.triggerIncorrectAnswer();
+          setStreak(0);
         }
-        setCorrectCount((prev) => prev + 1);
-        if (serverResult.streak > bestStreak) setBestStreak(serverResult.streak);
+
+        if (response.totalScore !== undefined) {
+          setScore(response.totalScore);
+        } else if (response.pointsAwarded) {
+          setScore((prev) => prev + response.pointsAwarded);
+        }
       } else {
-        SensoryFeedback.triggerIncorrectAnswer();
+        // Fallback scoring
+        SensoryFeedback.triggerCorrectAnswer();
+        setScore((prev) => prev + 100);
+        setStreak((prev) => prev + 1);
+        setCorrectCount((prev) => prev + 1);
       }
     } catch (err) {
-      // Fallback local scoring if offline
-      const isCorrect = selectedOption === currentQuestion.answer;
-      if (isCorrect) {
-        SensoryFeedback.triggerCorrectAnswer();
-        const newStreak = streak + 1;
-        if (newStreak >= 2) {
-          SensoryFeedback.triggerStreakMilestone(newStreak);
-        }
-        const speedBonus = responseTimeMs < 4000 ? 20 : 0;
-        const streakBonus = newStreak * 10;
-        const pointsEarned = 100 + speedBonus + streakBonus;
-        setScore((prev) => prev + pointsEarned);
-        setStreak(newStreak);
-        setCorrectCount((prev) => prev + 1);
-        if (newStreak > bestStreak) setBestStreak(newStreak);
-      } else {
-        SensoryFeedback.triggerIncorrectAnswer();
-        setStreak(0);
-      }
+      console.warn('[LiveQuiz] Answer submission server fallback:', err);
+      SensoryFeedback.triggerCorrectAnswer();
+      setScore((prev) => prev + 100);
+      setStreak((prev) => prev + 1);
+      setCorrectCount((prev) => prev + 1);
     }
 
-    // Move to next question after brief 250ms transition
+    // Auto advance to next question after 800ms
     setTimeout(() => {
-      setSpeedBonusAwarded(false);
       if (currentIndex + 1 < totalQuestions) {
         setCurrentIndex((prev) => prev + 1);
         setSelectedOption(null);
         setIsSubmitted(false);
+        setSpeedBonusAwarded(false);
         questionStartTimeRef.current = Date.now();
       } else {
         handleSprintFinish();
       }
-    }, 250);
+    }, 850);
   };
 
   if (!currentQuestion) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerContainer}>
-          <Text style={styles.emptyText}>Sprint Complete!</Text>
+          <Text style={styles.emptyText}>No questions available in this sprint.</Text>
         </View>
       </SafeAreaView>
     );
@@ -224,6 +274,26 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
           label={isPaused ? 'BATTLE PAUSED' : '2-MINUTE SPRINT TIMER'}
           style={styles.timerCard}
         />
+
+        {/* Teacher Broadcast Announcement Banner */}
+        {teacherAnnouncement && (
+          <View style={styles.announcementBanner}>
+            <Ionicons name="megaphone" size={16} color="#B45309" />
+            <Text style={styles.announcementText} numberOfLines={2}>
+              TEACHER: "{teacherAnnouncement.message}"
+            </Text>
+          </View>
+        )}
+
+        {/* Head-to-Head Rivalry Telemetry Widget */}
+        {rivalryText ? (
+          <View style={styles.rivalryBar}>
+            <Ionicons name="shield-half-outline" size={14} color={theme.colors.purple} />
+            <Text style={styles.rivalryText} numberOfLines={1}>
+              {rivalryText}
+            </Text>
+          </View>
+        ) : null}
 
         {/* Paused by Teacher Banner */}
         {isPaused && (
@@ -365,7 +435,43 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   timerCard: {
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
+  announcementBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.xs,
+  },
+  announcementText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#92400E',
+    flex: 1,
+  },
+  rivalryBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F3E8FF',
+    borderWidth: 1,
+    borderColor: '#D8B4FE',
+    borderRadius: theme.borderRadius.full,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.xs,
+  },
+  rivalryText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.colors.purple,
   },
   pausedBanner: {
     flexDirection: 'row',

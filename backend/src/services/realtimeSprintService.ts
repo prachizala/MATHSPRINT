@@ -232,6 +232,33 @@ export class RealtimeSprintService {
   }
 
   /**
+   * Broadcast teacher announcement in live sprint
+   */
+  static async setAnnouncement(sprintId: string, message: string): Promise<{ message: string; timestamp: number }> {
+    const announcement = { message, timestamp: Date.now() };
+    const memory = liveSprintsMemory.get(sprintId);
+    if (memory) {
+      memory.announcement = announcement;
+    }
+    if (isFirebaseAdminInitialized && adminRtdb) {
+      try {
+        await adminRtdb.ref(`liveSprints/${sprintId}/announcement`).set(announcement);
+      } catch (err) {
+        console.warn('[RealtimeSprintService] RTDB setAnnouncement error:', err);
+      }
+    }
+    return announcement;
+  }
+
+  /**
+   * Get current teacher announcement
+   */
+  static async getAnnouncement(sprintId: string): Promise<{ message: string; timestamp: number } | null> {
+    const state = await this.getLiveSprint(sprintId);
+    return state?.announcement || null;
+  }
+
+  /**
    * Get current state of live sprint
    */
   static async getLiveSprint(sprintId: string): Promise<LiveSprintState | null> {

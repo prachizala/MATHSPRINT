@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { TeacherStackParamList } from '../../navigation/types';
@@ -30,6 +30,8 @@ export const LiveMonitoringScreen: React.FC<Props> = ({ route, navigation }) => 
   const [isEnding, setIsEnding] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [pauseLoading, setPauseLoading] = useState(false);
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [lastSentNotice, setLastSentNotice] = useState<string | null>(null);
   const isPausedRef = React.useRef(false);
 
   useEffect(() => {
@@ -99,6 +101,20 @@ export const LiveMonitoringScreen: React.FC<Props> = ({ route, navigation }) => 
     }
   };
 
+  const handleSendAnnouncement = async (msg: string) => {
+    if (!msg.trim()) return;
+    setBroadcastSending(true);
+    try {
+      await SprintApi.sendAnnouncement(lobbyId, msg.trim());
+      setLastSentNotice(msg.trim());
+      setTimeout(() => setLastSentNotice(null), 4000);
+    } catch (err: any) {
+      Alert.alert('Broadcast Error', err.message || 'Failed to send announcement');
+    } finally {
+      setBroadcastSending(false);
+    }
+  };
+
   const handleCancelSprint = () => {
     Alert.alert(
       'Cancel Live Sprint',
@@ -148,53 +164,77 @@ export const LiveMonitoringScreen: React.FC<Props> = ({ route, navigation }) => 
       />
 
       <View style={styles.content}>
-        {/* Sprint Header & 2-Minute Timer */}
-        <View style={styles.titleCard}>
-          <Text style={styles.sprintName}>Math Logic Battle</Text>
-          <Text style={styles.topicName}>Arithmetic • Logic • Algebra (10 Questions)</Text>
-        </View>
+        <Card variant="default" style={styles.titleCard}>
+          <Text style={styles.sprintName}>MathSprint Championship</Text>
+          <Text style={styles.topicName}>Topic: Arithmetic • Logic • Class 10-A</Text>
+        </Card>
 
+        {/* Live Timer */}
         <TimerCard
           remainingSeconds={remainingTime}
           totalSeconds={120}
-          label="2-MINUTE SPRINT CLOCK"
+          label={isPaused ? 'BATTLE PAUSED' : 'LIVE 2-MINUTE SPRINT TIMER'}
           style={styles.timerCard}
         />
 
-        {/* Live Participation & Progress Grid (Non-invasive: no private answer exposure) */}
+        {/* Live Metrics Grid */}
         <View style={styles.telemetryGrid}>
-          <Card variant="elevated" style={styles.telemetryCard}>
+          <Card variant="accentBlue" style={styles.telemetryCard}>
             <View style={styles.cardHeaderRow}>
-              <Text style={styles.cardHeaderLbl}>Active Students</Text>
-              <Ionicons name="people" size={16} color={theme.colors.purple} />
-            </View>
-            <Text style={styles.cardHeaderVal}>{leaderboard.length}</Text>
-            <Text style={styles.cardHeaderSub}>100% In-Battle</Text>
-          </Card>
-
-          <Card variant="elevated" style={styles.telemetryCard}>
-            <View style={styles.cardHeaderRow}>
-              <Text style={styles.cardHeaderLbl}>Total Answered</Text>
-              <Ionicons name="flash" size={16} color={theme.colors.orange} />
+              <Text style={styles.cardHeaderLbl}>Answers</Text>
+              <Ionicons name="checkmark-done" size={16} color={theme.colors.primary} />
             </View>
             <Text style={styles.cardHeaderVal}>{answeredCount}</Text>
-            <Text style={styles.cardHeaderSub}>Responses</Text>
+            <Text style={styles.cardHeaderSub}>Total Submissions</Text>
           </Card>
 
-          <Card variant="elevated" style={styles.telemetryCard}>
+          <Card variant="accentPurple" style={styles.telemetryCard}>
             <View style={styles.cardHeaderRow}>
-              <Text style={styles.cardHeaderLbl}>Avg Class Score</Text>
-              <Ionicons name="speedometer-outline" size={16} color={theme.colors.green} />
+              <Text style={styles.cardHeaderLbl}>Class Avg</Text>
+              <Ionicons name="trophy" size={16} color={theme.colors.purple} />
             </View>
             <Text style={styles.cardHeaderVal}>{avgScore}</Text>
-            <Text style={styles.cardHeaderSub}>Points Avg</Text>
+            <Text style={styles.cardHeaderSub}>Points Average</Text>
           </Card>
         </View>
 
-        {/* Live Student Rankings & Scores */}
+        {/* Teacher Live Announcement Broadcaster */}
+        <Card variant="elevated" style={styles.broadcastCard}>
+          <View style={styles.broadcastHeaderRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="megaphone" size={16} color={theme.colors.primary} />
+              <Text style={styles.broadcastTitle}>Live Teacher Broadcaster</Text>
+            </View>
+            {lastSentNotice && (
+              <Badge label="SENT TO CLASS" variant="green" size="sm" />
+            )}
+          </View>
+          <Text style={styles.broadcastSub}>
+            Tap a quick alert to push instant motivational notifications to students' quiz screens:
+          </Text>
+          <View style={styles.chipRow}>
+            {[
+              '⏰ Last 30 Seconds!',
+              '🔥 Keep Streaks Up!',
+              '⚡ Bonus Points Active!',
+            ].map((msg) => (
+              <TouchableOpacity
+                key={msg}
+                activeOpacity={0.7}
+                disabled={broadcastSending}
+                style={styles.broadcastChip}
+                onPress={() => handleSendAnnouncement(msg)}
+              >
+                <Text style={styles.broadcastChipText}>{msg}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Card>
+
+        {/* Live Student Rankings */}
         <View style={styles.metaRow}>
-          <Text style={styles.activeLabel}>Live Student Rankings & Scores</Text>
-          <Badge label="PROTECTED TELEMETRY" variant="green" size="sm" />
+          <Text style={styles.activeLabel}>Live Leaderboard</Text>
+          <Badge label={`${leaderboard.length} Active Contestants`} variant="purple" size="sm" />
         </View>
 
         <FlatList
@@ -328,6 +368,46 @@ const styles = StyleSheet.create({
   cardHeaderSub: {
     fontSize: 10,
     color: theme.colors.textSecondary,
+  },
+  broadcastCard: {
+    padding: theme.spacing.sm,
+    marginVertical: theme.spacing.xs,
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+  broadcastHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  broadcastTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+  },
+  broadcastSub: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    marginBottom: 6,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  broadcastChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  broadcastChipText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.primary,
   },
   metaRow: {
     flexDirection: 'row',

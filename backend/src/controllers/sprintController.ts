@@ -275,6 +275,42 @@ export const resumeSprintController = async (req: AuthenticatedRequest, res: Res
   }
 };
 
+// ==================== 5E. BROADCAST ANNOUNCEMENT (Teacher) ====================
+export const broadcastAnnouncementController = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const sprintId = String(req.params.sprintId);
+    const { message } = req.body;
+    if (!message) {
+      return sendError(res, 'message is required', 400);
+    }
+    let resolvedSprintId = sprintId;
+    const lobby = await FirestoreDataService.getLobby(sprintId);
+    if (lobby && lobby.sprintId) {
+      resolvedSprintId = lobby.sprintId;
+    }
+    const announcement = await RealtimeSprintService.setAnnouncement(resolvedSprintId, message);
+    return sendSuccess(res, announcement, 'Announcement broadcasted successfully');
+  } catch (err: any) {
+    return sendError(res, err.message, 500);
+  }
+};
+
+// ==================== 5F. GET ACTIVE ANNOUNCEMENT ====================
+export const getAnnouncementController = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const sprintId = String(req.params.sprintId);
+    let resolvedSprintId = sprintId;
+    const lobby = await FirestoreDataService.getLobby(sprintId);
+    if (lobby && lobby.sprintId) {
+      resolvedSprintId = lobby.sprintId;
+    }
+    const announcement = await RealtimeSprintService.getAnnouncement(resolvedSprintId);
+    return sendSuccess(res, announcement);
+  } catch (err: any) {
+    return sendError(res, err.message, 500);
+  }
+};
+
 // ==================== 6. SECURE ANSWER SUBMISSION (Student) ====================
 export const submitAnswerController = async (req: AuthenticatedRequest, res: Response) => {
   try {

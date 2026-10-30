@@ -8,6 +8,8 @@ import {
   cancelSprintController,
   pauseSprintController,
   resumeSprintController,
+  broadcastAnnouncementController,
+  getAnnouncementController,
   submitAnswerController,
   getSprintLeaderboardController,
   getSprintResultController,
@@ -22,11 +24,13 @@ router.post('/:sprintId/lobby', requireAuth, requireTeacher, createLobbyForSprin
 router.post('/:sprintId/start', requireAuth, requireTeacher, startSprintController);
 router.post('/:sprintId/pause', requireAuth, requireTeacher, pauseSprintController);
 router.post('/:sprintId/resume', requireAuth, requireTeacher, resumeSprintController);
+router.post('/:sprintId/announcement', requireAuth, requireTeacher, broadcastAnnouncementController);
 router.post('/:sprintId/end', requireAuth, requireTeacher, endSprintController);
 router.post('/:sprintId/cancel', requireAuth, requireTeacher, cancelSprintController);
 
 // Shared / Sprint details
 router.get('/:sprintId', requireAuth, getSprintController);
+router.get('/:sprintId/announcement', requireAuth, getAnnouncementController);
 router.get('/:sprintId/leaderboard', requireAuth, getSprintLeaderboardController);
 router.get('/:sprintId/result', requireAuth, getSprintResultController);
 

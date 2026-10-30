@@ -136,6 +136,7 @@ export interface LiveSprintState {
   participants: Record<string, LiveSprintParticipant>;
   leaderboard: Record<string, LiveSprintLeaderboardEntry>;
   progress: LiveSprintProgress;
+  announcement?: { message: string; timestamp: number } | null;
 }
 
 // Scoring output
