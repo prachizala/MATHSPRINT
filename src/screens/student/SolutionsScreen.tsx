@@ -13,6 +13,7 @@ type Props = NativeStackScreenProps<StudentStackParamList, 'Solutions'>;
 export const SolutionsScreen: React.FC<Props> = ({ route, navigation }) => {
   const lobbyId = route.params?.lobbyId || 'lobby-101';
   const [solutions, setSolutions] = useState<any[]>(mockQuestions);
+  const [filter, setFilter] = useState<'all' | 'mistakes' | 'correct'>('all');
 
   useEffect(() => {
     let isMounted = true;
@@ -32,6 +33,21 @@ export const SolutionsScreen: React.FC<Props> = ({ route, navigation }) => {
     };
   }, [lobbyId]);
 
+  const mistakesCount = solutions.filter((item, index) => {
+    const hasStudentRecord = item.selectedAnswer !== undefined;
+    return hasStudentRecord ? !item.isCorrect : index === 7;
+  }).length;
+
+  const correctCount = solutions.length - mistakesCount;
+
+  const filteredSolutions = solutions.filter((item, index) => {
+    const hasStudentRecord = item.selectedAnswer !== undefined;
+    const isMissed = hasStudentRecord ? !item.isCorrect : index === 7;
+    if (filter === 'mistakes') return isMissed;
+    if (filter === 'correct') return !isMissed;
+    return true;
+  });
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <Header
@@ -42,78 +58,123 @@ export const SolutionsScreen: React.FC<Props> = ({ route, navigation }) => {
       />
 
       <View style={styles.content}>
-        <View style={styles.noticeBar}>
-          <Ionicons name="information-circle" size={16} color={theme.colors.primary} />
-          <Text style={styles.noticeText}>
-            Sprint Complete: All official solutions and step-by-step explanations unlocked.
-          </Text>
+        {/* Filter Segment Chips */}
+        <View style={styles.filterRow}>
+          <Button
+            title={`All (${solutions.length})`}
+            variant={filter === 'all' ? 'primary' : 'ghost'}
+            size="sm"
+            onPress={() => setFilter('all')}
+            style={styles.filterBtn}
+          />
+          <Button
+            title={`Mistakes (${mistakesCount})`}
+            variant={filter === 'mistakes' ? 'secondary' : 'ghost'}
+            size="sm"
+            leftIcon={
+              mistakesCount > 0 ? (
+                <Ionicons name="alert-circle" size={14} color={filter === 'mistakes' ? '#FFF' : theme.colors.danger} />
+              ) : undefined
+            }
+            onPress={() => setFilter('mistakes')}
+            style={styles.filterBtn}
+          />
+          <Button
+            title={`Correct (${correctCount})`}
+            variant={filter === 'correct' ? 'primary' : 'ghost'}
+            size="sm"
+            onPress={() => setFilter('correct')}
+            style={styles.filterBtn}
+          />
         </View>
 
-        <FlatList
-          data={solutions}
-          keyExtractor={(item) => item.questionId}
-          renderItem={({ item, index }) => {
-            const hasStudentRecord = item.selectedAnswer !== undefined;
-            const isMissed = hasStudentRecord ? !item.isCorrect : index === 7;
-            const userAnswer = hasStudentRecord ? (item.selectedAnswer || 'Not answered') : (isMissed ? item.options[0] : item.answer);
+        {filter === 'mistakes' && mistakesCount === 0 ? (
+          <Card variant="elevated" style={styles.perfectCard}>
+            <Ionicons name="trophy" size={48} color={theme.colors.orange} />
+            <Text style={styles.perfectTitle}>Zero Mistakes! Perfect Sprint!</Text>
+            <Text style={styles.perfectSub}>
+              You answered all problems correctly with high accuracy. Ready for harder challenges!
+            </Text>
+          </Card>
+        ) : (
+          <FlatList
+            data={filteredSolutions}
+            keyExtractor={(item) => item.questionId}
+            renderItem={({ item, index }) => {
+              const hasStudentRecord = item.selectedAnswer !== undefined;
+              const isMissed = hasStudentRecord ? !item.isCorrect : index === 7;
+              const userAnswer = hasStudentRecord ? (item.selectedAnswer || 'Not answered') : (isMissed ? item.options[0] : item.answer);
 
-            return (
-              <Card variant="elevated" style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <Badge label={`Q${index + 1} • ${item.topic}`} variant="primary" size="sm" />
-                  <Badge label={item.difficulty.toUpperCase()} variant="cyan" size="sm" />
-                </View>
+              return (
+                <Card variant="elevated" style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <Badge label={`Q${index + 1} • ${item.topic}`} variant="primary" size="sm" />
+                    <Badge label={item.difficulty.toUpperCase()} variant="cyan" size="sm" />
+                  </View>
 
-                <Text style={styles.questionText}>{item.question}</Text>
+                  <Text style={styles.questionText}>{item.question}</Text>
 
-                {/* User's Submitted Answer */}
-                <View
-                  style={[
-                    styles.userAnswerBox,
-                    isMissed ? styles.userAnswerBoxIncorrect : styles.userAnswerBoxCorrect,
-                  ]}
-                >
-                  <Ionicons
-                    name={isMissed ? 'close-circle' : 'checkmark-circle'}
-                    size={18}
-                    color={isMissed ? theme.colors.danger : theme.colors.green}
-                  />
-                  <Text
+                  {/* User's Submitted Answer */}
+                  <View
                     style={[
-                      styles.userAnswerText,
-                      isMissed ? { color: theme.colors.danger } : { color: theme.colors.greenDark },
+                      styles.userAnswerBox,
+                      isMissed ? styles.userAnswerBoxIncorrect : styles.userAnswerBoxCorrect,
                     ]}
                   >
-                    Your Answer: {userAnswer} {isMissed ? '(Incorrect)' : '(Correct)'}
-                  </Text>
-                </View>
-
-                {/* Correct Answer */}
-                {isMissed && (
-                  <View style={styles.correctAnswerBox}>
-                    <Ionicons name="checkmark-done" size={18} color={theme.colors.green} />
-                    <Text style={styles.correctAnswerText}>Correct Answer: {item.answer}</Text>
+                    <Ionicons
+                      name={isMissed ? 'close-circle' : 'checkmark-circle'}
+                      size={18}
+                      color={isMissed ? theme.colors.danger : theme.colors.green}
+                    />
+                    <Text
+                      style={[
+                        styles.userAnswerText,
+                        isMissed ? { color: theme.colors.danger } : { color: theme.colors.greenDark },
+                      ]}
+                    >
+                      Your Answer: {userAnswer} {isMissed ? '(Incorrect)' : '(Correct)'}
+                    </Text>
                   </View>
-                )}
 
-                {/* Step-by-Step Explanation */}
-                <View style={styles.explanationBox}>
-                  <View style={styles.expHeader}>
-                    <Ionicons name="bulb-outline" size={14} color={theme.colors.textSecondary} />
-                    <Text style={styles.explanationTitle}>Step-by-Step Explanation:</Text>
+                  {/* Correct Answer */}
+                  {isMissed && (
+                    <View style={styles.correctAnswerBox}>
+                      <Ionicons name="checkmark-done" size={18} color={theme.colors.green} />
+                      <Text style={styles.correctAnswerText}>Correct Answer: {item.answer}</Text>
+                    </View>
+                  )}
+
+                  {/* Step-by-Step Explanation */}
+                  <View style={styles.explanationBox}>
+                    <View style={styles.expHeader}>
+                      <Ionicons name="bulb-outline" size={14} color={theme.colors.textSecondary} />
+                      <Text style={styles.explanationTitle}>Step-by-Step Explanation:</Text>
+                    </View>
+                    <Text style={styles.explanationText}>{item.explanation}</Text>
                   </View>
-                  <Text style={styles.explanationText}>{item.explanation}</Text>
-                </View>
-              </Card>
-            );
-          }}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
+                </Card>
+              );
+            }}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+
+        {mistakesCount > 0 && (
+          <Button
+            title="PRACTICE TARGETED DRILL"
+            variant="secondary"
+            size="md"
+            leftIcon={<Ionicons name="fitness-outline" size={18} color="#FFF" />}
+            onPress={() => navigation.navigate('Recommendations')}
+            fullWidth
+            style={{ marginBottom: theme.spacing.xs }}
+          />
+        )}
 
         <Button
           title="Done Reviewing"
-          variant="primary"
+          variant="outline"
           size="md"
           onPress={() => navigation.navigate('StudentDashboard')}
           fullWidth
@@ -143,6 +204,40 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.sm,
     marginBottom: theme.spacing.sm,
     gap: 8,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: theme.spacing.sm,
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderRadius: theme.borderRadius.full,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  filterBtn: {
+    flex: 1,
+    borderRadius: theme.borderRadius.full,
+  },
+  perfectCard: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: theme.spacing.lg,
+  },
+  perfectTitle: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: '800',
+    color: theme.colors.textPrimary,
+    marginTop: theme.spacing.sm,
+    textAlign: 'center',
+  },
+  perfectSub: {
+    fontSize: theme.typography.sizes.xs,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 18,
   },
   noticeText: {
     fontSize: 11,

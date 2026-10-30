@@ -298,4 +298,18 @@ export class SprintApi {
     }
     return [];
   }
+
+  // 15. Teacher & Practice: Full Question Bank
+  static async getQuestions(filters?: { topic?: string; difficulty?: string; search?: string }): Promise<Question[]> {
+    const params: string[] = [];
+    if (filters?.topic && filters.topic !== 'All') params.push(`topic=${encodeURIComponent(filters.topic)}`);
+    if (filters?.difficulty && filters.difficulty !== 'All') params.push(`difficulty=${encodeURIComponent(filters.difficulty)}`);
+    if (filters?.search) params.push(`search=${encodeURIComponent(filters.search)}`);
+    const qs = params.length > 0 ? `?${params.join('&')}` : '';
+    const res = await ApiClient.get<Question[]>(`/questions${qs}`);
+    if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+      return res.data;
+    }
+    return mockQuestions;
+  }
 }

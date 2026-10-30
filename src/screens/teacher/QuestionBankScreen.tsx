@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, FlatList, Alert, TextInput, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { TeacherStackParamList } from '../../navigation/types';
@@ -7,6 +7,7 @@ import { theme } from '../../theme';
 import { Header, Card, Badge, Button, FairCompetitionCard } from '../../components/common';
 import { mockQuestions } from '../../data/mockData';
 import { Question } from '../../types';
+import { SprintApi } from '../../services/api/sprintApi';
 
 type Props = NativeStackScreenProps<TeacherStackParamList, 'QuestionBank'>;
 
@@ -15,6 +16,32 @@ export const QuestionBankScreen: React.FC<Props> = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState<'bank' | 'generator'>('bank');
   const [isGenerating, setIsGenerating] = useState(false);
   const [newAiQuestions, setNewAiQuestions] = useState<Question[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTopic, setSelectedTopic] = useState('All');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('All');
+  const [loading, setLoading] = useState(false);
+
+  const topics = ['All', 'Arithmetic', 'Logic', 'Algebra', 'Fractions', 'Geometry', 'Percentages'];
+  const difficulties = ['All', 'Easy', 'Medium', 'Hard'];
+
+  useEffect(() => {
+    let isMounted = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const data = await SprintApi.getQuestions();
+        if (isMounted && data && data.length > 0) {
+          setQuestions(data);
+        }
+      } catch (err) {
+        console.warn('[QuestionBank] Fetch error:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { isMounted = false; };
+  }, []);
 
   const handleGenerateWithAi = () => {
     setIsGenerating(true);
@@ -55,11 +82,29 @@ export const QuestionBankScreen: React.FC<Props> = ({ navigation }) => {
     setActiveTab('bank');
   };
 
+  const filteredQuestions = questions.filter((q) => {
+    if (selectedTopic !== 'All' && !q.topic.toLowerCase().includes(selectedTopic.toLowerCase())) {
+      return false;
+    }
+    if (selectedDifficulty !== 'All' && q.difficulty.toLowerCase() !== selectedDifficulty.toLowerCase()) {
+      return false;
+    }
+    if (searchQuery.trim()) {
+      const s = searchQuery.toLowerCase().trim();
+      return (
+        q.question.toLowerCase().includes(s) ||
+        q.topic.toLowerCase().includes(s) ||
+        (q.explanation && q.explanation.toLowerCase().includes(s))
+      );
+    }
+    return true;
+  });
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <Header
         title="Question Bank"
-        subtitle={`${questions.length} Predefined Sprint Problems`}
+        subtitle={`${filteredQuestions.length} of ${questions.length} Problems Available`}
         showBack
         onBack={() => navigation.goBack()}
       />
@@ -86,43 +131,115 @@ export const QuestionBankScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {activeTab === 'bank' ? (
-          /* Predefined Question Bank View */
-          <FlatList
-            data={questions}
-            keyExtractor={(item) => item.questionId}
-            renderItem={({ item, index }) => (
-              <Card variant="elevated" style={styles.card}>
-                <View style={styles.headerRow}>
-                  <Badge label={`Q${index + 1} • ${item.topic}`} variant="primary" size="sm" />
-                  <Badge label={item.difficulty.toUpperCase()} variant="cyan" size="sm" />
-                </View>
-                <Text style={styles.questionText}>{item.question}</Text>
-                <View style={styles.optionsGrid}>
-                  {item.options.map((opt, i) => (
-                    <View
-                      key={i}
-                      style={[
-                        styles.optionPill,
-                        opt === item.answer && styles.optionPillCorrect,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.optionText,
-                          opt === item.answer && styles.optionTextCorrect,
-                        ]}
-                      >
-                        {String.fromCharCode(65 + i)}: {opt}
-                      </Text>
+          <>
+            {/* Search Bar */}
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={16} color={theme.colors.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search questions, topics, formulas..."
+                placeholderTextColor={theme.colors.textMuted}
+                autoCapitalize="none"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={16} color={theme.colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Topic Filter Chips */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll} contentContainerStyle={styles.chipsContainer}>
+              {topics.map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => setSelectedTopic(t)}
+                  style={[
+                    styles.chip,
+                    selectedTopic === t && styles.chipActive,
+                  ]}
+                >
+                  <Text style={[styles.chipText, selectedTopic === t && styles.chipTextActive]}>
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Difficulty Filter Chips */}
+            <View style={styles.diffRow}>
+              {difficulties.map((d) => (
+                <TouchableOpacity
+                  key={d}
+                  onPress={() => setSelectedDifficulty(d)}
+                  style={[
+                    styles.diffChip,
+                    selectedDifficulty === d && styles.diffChipActive,
+                  ]}
+                >
+                  <Text style={[styles.diffChipText, selectedDifficulty === d && styles.diffChipTextActive]}>
+                    {d}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Questions List */}
+            {loading ? (
+              <View style={styles.centerBox}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={styles.loadingText}>Loading question bank...</Text>
+              </View>
+            ) : filteredQuestions.length === 0 ? (
+              <View style={styles.centerBox}>
+                <Ionicons name="search-outline" size={36} color={theme.colors.textMuted} />
+                <Text style={styles.emptyTitle}>No matching questions</Text>
+                <Text style={styles.emptySubtitle}>Try adjusting your topic or difficulty filters.</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredQuestions}
+                keyExtractor={(item) => item.questionId}
+                renderItem={({ item, index }) => (
+                  <Card variant="elevated" style={styles.card}>
+                    <View style={styles.headerRow}>
+                      <Badge label={`Q${index + 1} • ${item.topic}`} variant="primary" size="sm" />
+                      <Badge label={item.difficulty.toUpperCase()} variant="cyan" size="sm" />
                     </View>
-                  ))}
-                </View>
-                <Text style={styles.ansLine}>Correct: {item.answer}</Text>
-              </Card>
+                    <Text style={styles.questionText}>{item.question}</Text>
+                    <View style={styles.optionsGrid}>
+                      {item.options.map((opt, i) => (
+                        <View
+                          key={i}
+                          style={[
+                            styles.optionPill,
+                            opt === item.answer && styles.optionPillCorrect,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.optionText,
+                              opt === item.answer && styles.optionTextCorrect,
+                            ]}
+                          >
+                            {String.fromCharCode(65 + i)}: {opt}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                    <Text style={styles.ansLine}>Correct: {item.answer}</Text>
+                    {item.explanation && (
+                      <Text style={styles.explLine}>💡 {item.explanation}</Text>
+                    )}
+                  </Card>
+                )}
+                contentContainerStyle={styles.list}
+                showsVerticalScrollIndicator={false}
+              />
             )}
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-          />
+          </>
         ) : (
           /* AI Generator Section */
           <View style={styles.generatorSection}>
@@ -244,6 +361,108 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.greenDark,
     marginTop: 6,
+  },
+  explLine: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 8,
+    marginBottom: theme.spacing.xs,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textPrimary,
+  },
+  chipsScroll: {
+    maxHeight: 38,
+    marginBottom: 6,
+  },
+  chipsContainer: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  chipActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+  },
+  chipTextActive: {
+    color: '#FFF',
+    fontWeight: '700',
+  },
+  diffRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: theme.spacing.sm,
+  },
+  diffChip: {
+    flex: 1,
+    paddingVertical: 5,
+    alignItems: 'center',
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  diffChipActive: {
+    backgroundColor: theme.colors.cyanLight,
+    borderColor: theme.colors.cyan,
+  },
+  diffChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.colors.textSecondary,
+  },
+  diffChipTextActive: {
+    color: theme.colors.cyanDark,
+    fontWeight: '700',
+  },
+  centerBox: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+  },
+  loadingText: {
+    marginTop: theme.spacing.sm,
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.textSecondary,
+  },
+  emptyTitle: {
+    fontSize: theme.typography.sizes.md,
+    fontWeight: '700',
+    color: theme.colors.textPrimary,
+    marginTop: theme.spacing.sm,
+  },
+  emptySubtitle: {
+    fontSize: theme.typography.sizes.xs,
+    color: theme.colors.textMuted,
+    marginTop: 2,
   },
   generatorSection: {
     flex: 1,
