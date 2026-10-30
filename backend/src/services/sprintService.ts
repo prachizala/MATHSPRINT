@@ -16,7 +16,8 @@ export class SprintService {
     const validTransitions: Record<SprintStatus, SprintStatus[]> = {
       DRAFT: ['WAITING', 'CANCELLED'],
       WAITING: ['LIVE', 'CANCELLED'],
-      LIVE: ['ENDED', 'CANCELLED'],
+      LIVE: ['PAUSED', 'ENDED', 'CANCELLED'],
+      PAUSED: ['LIVE', 'ENDED', 'CANCELLED'],
       ENDED: [], // Cannot transition out of ENDED
       CANCELLED: [], // Cannot transition out of CANCELLED
     };
@@ -125,6 +126,89 @@ export class SprintService {
       ...sprint,
       status: 'CANCELLED',
       endedAt: now,
+    };
+  }
+
+  /**
+   * Pause a live sprint (LIVE -> PAUSED)
+   */
+  static async pauseSprint(sprintId: string): Promise<FirestoreSprint> {
+    const sprint = await FirestoreDataService.getSprint(sprintId);
+    if (!sprint) {
+      throw new Error(`Sprint not found: ${sprintId}`);
+    }
+
+    if (sprint.status === 'PAUSED') {
+      return sprint;
+    }
+
+    if (sprint.status !== 'LIVE') {
+      throw new Error(`Cannot pause sprint in status '${sprint.status}'. Must be LIVE.`);
+    }
+
+    const now = Date.now();
+    const remainingMs = Math.max(0, (sprint.endedAt || (now + 120000)) - now);
+
+    await FirestoreDataService.updateSprintStatus(sprintId, 'PAUSED', {
+      pausedAt: now,
+      remainingMs,
+    });
+
+    if (sprint.lobbyId) {
+      await FirestoreDataService.updateLobbyStatus(sprint.lobbyId, 'PAUSED' as any);
+    }
+
+    // Sync RTDB
+    await RealtimeSprintService.updateSprintState(sprintId, 'PAUSED', sprint.startedAt, sprint.endedAt);
+
+    return {
+      ...sprint,
+      status: 'PAUSED',
+      pausedAt: now,
+      remainingMs,
+    };
+  }
+
+  /**
+   * Resume a paused sprint (PAUSED -> LIVE)
+   */
+  static async resumeSprint(sprintId: string): Promise<FirestoreSprint> {
+    const sprint = await FirestoreDataService.getSprint(sprintId);
+    if (!sprint) {
+      throw new Error(`Sprint not found: ${sprintId}`);
+    }
+
+    if (sprint.status === 'LIVE') {
+      return sprint;
+    }
+
+    if (sprint.status !== 'PAUSED') {
+      throw new Error(`Cannot resume sprint in status '${sprint.status}'. Must be PAUSED.`);
+    }
+
+    const now = Date.now();
+    const remainingMs = sprint.remainingMs || 60000;
+    const newEndedAt = now + remainingMs;
+
+    await FirestoreDataService.updateSprintStatus(sprintId, 'LIVE', {
+      pausedAt: null,
+      remainingMs: null,
+      endedAt: newEndedAt,
+    });
+
+    if (sprint.lobbyId) {
+      await FirestoreDataService.updateLobbyStatus(sprint.lobbyId, 'LIVE' as any);
+    }
+
+    // Sync RTDB with updated endTime
+    await RealtimeSprintService.updateSprintState(sprintId, 'LIVE', sprint.startedAt, newEndedAt);
+
+    return {
+      ...sprint,
+      status: 'LIVE',
+      pausedAt: null,
+      remainingMs: null,
+      endedAt: newEndedAt,
     };
   }
 

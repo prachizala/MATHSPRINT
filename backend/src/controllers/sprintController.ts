@@ -222,8 +222,54 @@ export const endSprintController = async (req: AuthenticatedRequest, res: Respon
 export const cancelSprintController = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const sprintId = String(req.params.sprintId);
-    const cancelled = await SprintService.cancelSprint(sprintId);
+    let resolvedSprintId = sprintId;
+    let sprint = await FirestoreDataService.getSprint(sprintId);
+    if (!sprint) {
+      const lobby = await FirestoreDataService.getLobby(sprintId);
+      if (lobby && lobby.sprintId) {
+        resolvedSprintId = lobby.sprintId;
+      }
+    }
+    const cancelled = await SprintService.cancelSprint(resolvedSprintId);
     return sendSuccess(res, cancelled, 'Sprint cancelled');
+  } catch (err: any) {
+    return sendError(res, err.message, 400);
+  }
+};
+
+// ==================== 5C. PAUSE SPRINT (Teacher) ====================
+export const pauseSprintController = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const sprintId = String(req.params.sprintId);
+    let resolvedSprintId = sprintId;
+    let sprint = await FirestoreDataService.getSprint(sprintId);
+    if (!sprint) {
+      const lobby = await FirestoreDataService.getLobby(sprintId);
+      if (lobby && lobby.sprintId) {
+        resolvedSprintId = lobby.sprintId;
+      }
+    }
+    const paused = await SprintService.pauseSprint(resolvedSprintId);
+    return sendSuccess(res, paused, 'Sprint paused');
+  } catch (err: any) {
+    return sendError(res, err.message, 400);
+  }
+};
+
+// ==================== 5D. RESUME SPRINT (Teacher) ====================
+export const resumeSprintController = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const sprintId = String(req.params.sprintId);
+    let resolvedSprintId = sprintId;
+    let sprint = await FirestoreDataService.getSprint(sprintId);
+    if (!sprint) {
+      const lobby = await FirestoreDataService.getLobby(sprintId);
+      if (lobby && lobby.sprintId) {
+        resolvedSprintId = lobby.sprintId;
+      }
+    }
+    const resumed = await SprintService.resumeSprint(resolvedSprintId);
+    return sendSuccess(res, resumed, 'Sprint resumed');
   } catch (err: any) {
     return sendError(res, err.message, 400);
   }

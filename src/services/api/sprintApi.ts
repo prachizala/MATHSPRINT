@@ -127,6 +127,24 @@ export class SprintApi {
     return { sprintId, status: 'CANCELLED', endedAt: Date.now() };
   }
 
+  // 6c. Teacher: Pause Sprint (LIVE -> PAUSED)
+  static async pauseSprint(sprintId: string): Promise<any> {
+    const res = await ApiClient.post(`/sprints/${sprintId}/pause`);
+    if (res.success && res.data) {
+      return res.data;
+    }
+    return { sprintId, status: 'PAUSED', pausedAt: Date.now() };
+  }
+
+  // 6d. Teacher: Resume Sprint (PAUSED -> LIVE)
+  static async resumeSprint(sprintId: string): Promise<any> {
+    const res = await ApiClient.post(`/sprints/${sprintId}/resume`);
+    if (res.success && res.data) {
+      return res.data;
+    }
+    return { sprintId, status: 'LIVE' };
+  }
+
   // 7. Get Sprint Details
   static async getSprint(sprintId: string): Promise<any> {
     const res = await ApiClient.get(`/sprints/${sprintId}`);

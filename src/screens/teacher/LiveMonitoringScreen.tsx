@@ -28,6 +28,9 @@ export const LiveMonitoringScreen: React.FC<Props> = ({ route, navigation }) => 
   const [avgScore, setAvgScore] = useState(0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(mockLeaderboard);
   const [isEnding, setIsEnding] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pauseLoading, setPauseLoading] = useState(false);
+  const isPausedRef = React.useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -44,20 +47,29 @@ export const LiveMonitoringScreen: React.FC<Props> = ({ route, navigation }) => 
     // Listen to live sprint state
     unsubSprint = RealtimeService.listenToLiveSprint(lobbyId, (state) => {
       if (!isMounted) return;
+      if (state.status === 'PAUSED') {
+        setIsPaused(true);
+        isPausedRef.current = true;
+      } else if (state.status === 'LIVE' || state.status === 'ACTIVE') {
+        setIsPaused(false);
+        isPausedRef.current = false;
+      }
       if (state.progress?.totalAnswered !== undefined) {
         setAnsweredCount(state.progress.totalAnswered);
       }
       if (state.progress?.averageScore !== undefined) {
         setAvgScore(state.progress.averageScore);
       }
-      if (state.endTime) {
+      if (state.endTime && !isPausedRef.current) {
         const remaining = Math.max(0, Math.round((state.endTime - Date.now()) / 1000));
         setRemainingTime(remaining);
       }
     });
 
     const timer = setInterval(() => {
-      setRemainingTime((prev) => (prev > 0 ? prev - 1 : 0));
+      if (!isPausedRef.current) {
+        setRemainingTime((prev) => (prev > 0 ? prev - 1 : 0));
+      }
     }, 1000);
 
     return () => {
@@ -67,6 +79,25 @@ export const LiveMonitoringScreen: React.FC<Props> = ({ route, navigation }) => 
       unsubSprint?.();
     };
   }, [lobbyId]);
+
+  const handleTogglePause = async () => {
+    setPauseLoading(true);
+    try {
+      if (isPaused) {
+        await SprintApi.resumeSprint(lobbyId);
+        setIsPaused(false);
+        isPausedRef.current = false;
+      } else {
+        await SprintApi.pauseSprint(lobbyId);
+        setIsPaused(true);
+        isPausedRef.current = true;
+      }
+    } catch (err) {
+      console.warn('Toggle pause error:', err);
+    } finally {
+      setPauseLoading(false);
+    }
+  };
 
   const handleCancelSprint = () => {
     Alert.alert(
@@ -108,7 +139,11 @@ export const LiveMonitoringScreen: React.FC<Props> = ({ route, navigation }) => 
         title="Live Monitoring"
         subtitle="Real-time classroom sprint telemetry"
         rightElement={
-          <Badge label="LIVE BATTLE" variant="orange" size="sm" />
+          <Badge
+            label={isPaused ? 'BATTLE PAUSED' : 'LIVE BATTLE'}
+            variant={isPaused ? 'cyan' : 'orange'}
+            size="sm"
+          />
         }
       />
 
@@ -194,17 +229,34 @@ export const LiveMonitoringScreen: React.FC<Props> = ({ route, navigation }) => 
           showsVerticalScrollIndicator={false}
         />
 
-        {/* End Sprint & Cancel Controls */}
-        <Button
-          title={isEnding ? 'FINALIZING RESULTS...' : 'END SPRINT & VIEW RESULTS'}
-          variant="secondary"
-          size="lg"
-          disabled={isEnding}
-          leftIcon={<Ionicons name="flag" size={20} color="#FFF" />}
-          onPress={handleEndSprint}
-          fullWidth
-          style={styles.endBtn}
-        />
+        {/* Battle Controls: Pause/Resume, End, Cancel */}
+        <View style={styles.actionRow}>
+          <Button
+            title={isPaused ? 'RESUME BATTLE' : 'PAUSE BATTLE'}
+            variant={isPaused ? 'primary' : 'outline'}
+            size="md"
+            loading={pauseLoading}
+            leftIcon={
+              <Ionicons
+                name={isPaused ? 'play-circle' : 'pause-circle'}
+                size={18}
+                color={isPaused ? '#FFF' : theme.colors.warning}
+              />
+            }
+            onPress={handleTogglePause}
+            style={styles.pauseBtn}
+          />
+
+          <Button
+            title={isEnding ? 'FINALIZING...' : 'END SPRINT'}
+            variant="secondary"
+            size="md"
+            disabled={isEnding}
+            leftIcon={<Ionicons name="flag" size={18} color="#FFF" />}
+            onPress={handleEndSprint}
+            style={styles.endBtn}
+          />
+        </View>
 
         <Button
           title="CANCEL SPRINT BATTLE"
@@ -336,8 +388,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: theme.colors.purple,
   },
-  endBtn: {
+  actionRow: {
+    flexDirection: 'row',
+    gap: 8,
     marginTop: theme.spacing.xs,
+  },
+  pauseBtn: {
+    flex: 1,
+  },
+  endBtn: {
+    flex: 1,
   },
   fairPlay: {
     marginTop: theme.spacing.xs,

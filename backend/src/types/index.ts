@@ -1,6 +1,6 @@
 export type UserRole = 'student' | 'teacher';
 
-export type SprintStatus = 'DRAFT' | 'WAITING' | 'LIVE' | 'ENDED' | 'CANCELLED';
+export type SprintStatus = 'DRAFT' | 'WAITING' | 'LIVE' | 'PAUSED' | 'ENDED' | 'CANCELLED';
 
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
 
@@ -70,6 +70,8 @@ export interface FirestoreSprint {
   createdAt: number;
   startedAt: number | null;
   endedAt: number | null;
+  pausedAt?: number | null;
+  remainingMs?: number | null;
   questionIds: string[];
 }
 

@@ -6,6 +6,8 @@ import {
   startSprintController,
   endSprintController,
   cancelSprintController,
+  pauseSprintController,
+  resumeSprintController,
   submitAnswerController,
   getSprintLeaderboardController,
   getSprintResultController,
@@ -18,6 +20,8 @@ const router = Router();
 router.post('/', requireAuth, requireTeacher, createSprintController);
 router.post('/:sprintId/lobby', requireAuth, requireTeacher, createLobbyForSprintController);
 router.post('/:sprintId/start', requireAuth, requireTeacher, startSprintController);
+router.post('/:sprintId/pause', requireAuth, requireTeacher, pauseSprintController);
+router.post('/:sprintId/resume', requireAuth, requireTeacher, resumeSprintController);
 router.post('/:sprintId/end', requireAuth, requireTeacher, endSprintController);
 router.post('/:sprintId/cancel', requireAuth, requireTeacher, cancelSprintController);
 

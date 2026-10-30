@@ -35,11 +35,14 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
   const [correctCount, setCorrectCount] = useState(0);
   const [remainingTime, setRemainingTime] = useState(120); // Exactly 2 minutes
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [speedBonusAwarded, setSpeedBonusAwarded] = useState(false);
 
   const questionStartTimeRef = useRef(Date.now());
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const endTimeRef = useRef<number>(Date.now() + 120000);
   const isFinishedRef = useRef(false);
+  const isPausedRef = useRef(false);
 
   const handleSprintFinish = () => {
     if (isFinishedRef.current) return;
@@ -71,8 +74,15 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
     // Subscribe to server-authoritative status and endTime in RTDB
     unsubLiveSprint = RealtimeService.listenToLiveSprint(lobbyId, (liveState) => {
       if (!isMounted) return;
-      if (liveState.endTime) {
-        endTimeRef.current = liveState.endTime;
+      if (liveState.status === 'PAUSED') {
+        setIsPaused(true);
+        isPausedRef.current = true;
+      } else if (liveState.status === 'LIVE' || liveState.status === 'ACTIVE') {
+        setIsPaused(false);
+        isPausedRef.current = false;
+        if (liveState.endTime) {
+          endTimeRef.current = liveState.endTime;
+        }
       }
       if (liveState.status === 'ENDED') {
         handleSprintFinish();
@@ -92,6 +102,7 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
   useEffect(() => {
     questionStartTimeRef.current = Date.now();
     timerRef.current = setInterval(() => {
+      if (isPausedRef.current) return;
       const remaining = Math.max(0, Math.floor((endTimeRef.current - Date.now()) / 1000));
       setRemainingTime(remaining);
       if (remaining <= 0) {
@@ -107,10 +118,13 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // Submit Answer to Secure Backend
   const handleSubmitAnswer = async () => {
-    if (!selectedOption || isSubmitted || !currentQuestion) return;
+    if (!selectedOption || isSubmitted || isPaused || !currentQuestion) return;
 
     setIsSubmitted(true);
     const responseTimeMs = Date.now() - questionStartTimeRef.current;
+    if (responseTimeMs < 3500) {
+      setSpeedBonusAwarded(true);
+    }
 
     try {
       const serverResult = await SprintApi.submitAnswer(lobbyId, {
@@ -144,6 +158,7 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
 
     // Move to next question after brief 250ms transition
     setTimeout(() => {
+      setSpeedBonusAwarded(false);
       if (currentIndex + 1 < totalQuestions) {
         setCurrentIndex((prev) => prev + 1);
         setSelectedOption(null);
@@ -191,9 +206,37 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
         <TimerCard
           remainingSeconds={remainingTime}
           totalSeconds={120}
-          label="2-MINUTE SPRINT TIMER"
+          label={isPaused ? 'BATTLE PAUSED' : '2-MINUTE SPRINT TIMER'}
           style={styles.timerCard}
         />
+
+        {/* Paused by Teacher Banner */}
+        {isPaused && (
+          <View style={styles.pausedBanner}>
+            <Ionicons name="pause-circle" size={20} color={theme.colors.warning} />
+            <Text style={styles.pausedBannerText}>
+              BATTLE PAUSED BY TEACHER — TIMER FROZEN
+            </Text>
+          </View>
+        )}
+
+        {/* Dynamic Streak Fire Multiplier Banner */}
+        {streak >= 2 && !isPaused && (
+          <View style={styles.multiplierBanner}>
+            <Ionicons name="flame" size={18} color="#FFF" />
+            <Text style={styles.multiplierText}>
+              🔥 {streak}X STREAK MULTIPLIER ACTIVE (+{streak * 10} PTS)
+            </Text>
+          </View>
+        )}
+
+        {/* Speed Bonus Pill */}
+        {speedBonusAwarded && (
+          <View style={styles.speedBonusPill}>
+            <Ionicons name="flash" size={14} color={theme.colors.cyanDark} />
+            <Text style={styles.speedBonusText}>⚡ Lightning Speed Bonus (+20 PTS)!</Text>
+          </View>
+        )}
 
         {/* Question Progress Bar */}
         <ProgressBar
@@ -224,7 +267,7 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
               index={idx}
               text={option}
               isSelected={selectedOption === option}
-              disabled={isSubmitted}
+              disabled={isSubmitted || isPaused}
               onPress={() => setSelectedOption(option)}
             />
           ))}
@@ -232,11 +275,11 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* SUBMIT ANSWER CTA */}
         <Button
-          title={selectedOption ? 'SUBMIT ANSWER' : 'SELECT AN OPTION'}
-          variant={selectedOption ? 'primary' : 'outline'}
+          title={isPaused ? 'BATTLE PAUSED' : selectedOption ? 'SUBMIT ANSWER' : 'SELECT AN OPTION'}
+          variant={selectedOption && !isPaused ? 'primary' : 'outline'}
           size="lg"
-          disabled={!selectedOption || isSubmitted}
-          leftIcon={<Ionicons name="checkmark-circle" size={20} color={selectedOption ? '#FFF' : theme.colors.textMuted} />}
+          disabled={!selectedOption || isSubmitted || isPaused}
+          leftIcon={<Ionicons name="checkmark-circle" size={20} color={selectedOption && !isPaused ? '#FFF' : theme.colors.textMuted} />}
           onPress={handleSubmitAnswer}
           fullWidth
           style={styles.submitBtn}
@@ -308,6 +351,61 @@ const styles = StyleSheet.create({
   },
   timerCard: {
     marginBottom: theme.spacing.sm,
+  },
+  pausedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: theme.colors.warningBackground,
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.sm,
+  },
+  pausedBannerText: {
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: '800',
+    color: theme.colors.warning,
+    letterSpacing: 0.5,
+  },
+  multiplierBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: theme.colors.orange,
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.sm,
+  },
+  multiplierText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: 0.5,
+  },
+  speedBonusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.cyanLight,
+    borderWidth: 1,
+    borderColor: theme.colors.cyan,
+    borderRadius: theme.borderRadius.full,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.sm,
+    alignSelf: 'center',
+  },
+  speedBonusText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.colors.cyanDark,
   },
   progressBar: {
     marginBottom: theme.spacing.sm,
