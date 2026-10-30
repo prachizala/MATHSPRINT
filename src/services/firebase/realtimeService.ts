@@ -9,6 +9,7 @@ import {
 import { rtdb } from '../../../firebase/config/firebaseConfig';
 import { Participant, LeaderboardEntry } from '../../types';
 import { mockLobby, mockLeaderboard } from '../../data/mockData';
+import { SprintApi } from '../api/sprintApi';
 
 export interface LiveSprintPayload {
   status: string;
@@ -21,28 +22,68 @@ export interface LiveSprintPayload {
 
 export class RealtimeService {
   /**
-   * Listen to live sprint state changes (e.g. status transition from WAITING -> LIVE -> ENDED)
+   * Listen to live sprint state changes (WAITING -> LIVE -> PAUSED -> ENDED)
+   * With automatic HTTP polling fallback if RTDB is inactive or offline.
    */
   static listenToLiveSprint(
     sprintId: string,
     onStateChange: (state: LiveSprintPayload) => void
   ): () => void {
+    let pollInterval: NodeJS.Timeout | null = null;
+    let unsubRtdb: (() => void) | null = null;
+    let receivedRtdb = false;
+
     if (rtdb) {
-      const sprintRef = ref(rtdb, `liveSprints/${sprintId}`);
-      const unsub = onValue(sprintRef, (snapshot) => {
-        const val = snapshot.val();
-        if (val) onStateChange(val);
-      });
-      return unsub;
+      try {
+        const sprintRef = ref(rtdb, `liveSprints/${sprintId}`);
+        unsubRtdb = onValue(
+          sprintRef,
+          (snapshot) => {
+            const val = snapshot.val();
+            if (val) {
+              receivedRtdb = true;
+              onStateChange(val);
+            }
+          },
+          (err) => {
+            console.warn('[RealtimeService] RTDB liveSprint error, falling back to polling:', err);
+          }
+        );
+      } catch (err) {
+        console.warn('[RealtimeService] RTDB ref error:', err);
+      }
     }
 
-    // Dev fallback: initial call
-    onStateChange({
-      status: 'WAITING',
-      startTime: null,
-      endTime: null,
-    });
-    return () => {};
+    const doPoll = async () => {
+      try {
+        const sprint = await SprintApi.getSprint(sprintId);
+        if (sprint) {
+          onStateChange({
+            status: sprint.status,
+            startTime: sprint.startedAt || null,
+            endTime: sprint.endedAt || null,
+            progress: {
+              totalAnswered: sprint.totalAnswered || 0,
+              averageScore: sprint.averageScore || 0,
+            },
+          });
+        }
+      } catch (err) {
+        // Fallback gracefully
+      }
+    };
+
+    doPoll();
+    pollInterval = setInterval(() => {
+      if (!receivedRtdb) {
+        doPoll();
+      }
+    }, 2500);
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+      if (unsubRtdb) unsubRtdb();
+    };
   }
 
   /**
@@ -52,18 +93,53 @@ export class RealtimeService {
     sprintId: string,
     onParticipantsChange: (participants: Record<string, any>) => void
   ): () => void {
+    let pollInterval: NodeJS.Timeout | null = null;
+    let unsubRtdb: (() => void) | null = null;
+    let receivedRtdb = false;
+
     if (rtdb) {
-      const participantsRef = ref(rtdb, `liveSprints/${sprintId}/participants`);
-      const unsub = onValue(participantsRef, (snapshot) => {
-        const val = snapshot.val() || {};
-        onParticipantsChange(val);
-      });
-      return unsub;
+      try {
+        const participantsRef = ref(rtdb, `liveSprints/${sprintId}/participants`);
+        unsubRtdb = onValue(
+          participantsRef,
+          (snapshot) => {
+            const val = snapshot.val();
+            if (val) {
+              receivedRtdb = true;
+              onParticipantsChange(val);
+            }
+          },
+          (err) => {
+            console.warn('[RealtimeService] RTDB participants error:', err);
+          }
+        );
+      } catch (err) {
+        console.warn('[RealtimeService] RTDB ref error:', err);
+      }
     }
 
-    const mockList = { ...mockLobby.participants };
-    onParticipantsChange(mockList);
-    return () => {};
+    const doPoll = async () => {
+      try {
+        const sprint = await SprintApi.getSprint(sprintId);
+        if (sprint && sprint.participants) {
+          onParticipantsChange(sprint.participants);
+        }
+      } catch (err) {
+        // Fallback to mock if not available
+      }
+    };
+
+    doPoll();
+    pollInterval = setInterval(() => {
+      if (!receivedRtdb) {
+        doPoll();
+      }
+    }, 2500);
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+      if (unsubRtdb) unsubRtdb();
+    };
   }
 
   /**
@@ -73,27 +149,63 @@ export class RealtimeService {
     sprintId: string,
     onLeaderboardChange: (leaderboard: LeaderboardEntry[]) => void
   ): () => void {
+    let pollInterval: NodeJS.Timeout | null = null;
+    let unsubRtdb: (() => void) | null = null;
+    let receivedRtdb = false;
+
     if (rtdb) {
-      const leaderboardRef = ref(rtdb, `liveSprints/${sprintId}/leaderboard`);
-      const unsub = onValue(leaderboardRef, (snapshot) => {
-        const val = snapshot.val();
-        if (val) {
-          const list: LeaderboardEntry[] = Object.values(val).map((item: any) => ({
-            rank: item.rank || 1,
-            studentId: item.studentId,
-            name: item.name,
-            score: item.score || 0,
-            accuracy: 100,
-            streak: 0,
-          })).sort((a, b) => a.rank - b.rank);
-          onLeaderboardChange(list);
-        }
-      });
-      return unsub;
+      try {
+        const leaderboardRef = ref(rtdb, `liveSprints/${sprintId}/leaderboard`);
+        unsubRtdb = onValue(
+          leaderboardRef,
+          (snapshot) => {
+            const val = snapshot.val();
+            if (val) {
+              receivedRtdb = true;
+              const list: LeaderboardEntry[] = Object.values(val)
+                .map((item: any) => ({
+                  rank: item.rank || 1,
+                  studentId: item.studentId,
+                  name: item.name,
+                  score: item.score || 0,
+                  accuracy: 100,
+                  streak: 0,
+                }))
+                .sort((a, b) => a.rank - b.rank);
+              onLeaderboardChange(list);
+            }
+          },
+          (err) => {
+            console.warn('[RealtimeService] RTDB leaderboard error:', err);
+          }
+        );
+      } catch (err) {
+        console.warn('[RealtimeService] RTDB ref error:', err);
+      }
     }
 
-    onLeaderboardChange(mockLeaderboard);
-    return () => {};
+    const doPoll = async () => {
+      try {
+        const list = await SprintApi.getSprintLeaderboard(sprintId);
+        if (list && list.length > 0) {
+          onLeaderboardChange(list);
+        }
+      } catch (err) {
+        // Fallback quietly
+      }
+    };
+
+    doPoll();
+    pollInterval = setInterval(() => {
+      if (!receivedRtdb) {
+        doPoll();
+      }
+    }, 2000);
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+      if (unsubRtdb) unsubRtdb();
+    };
   }
 
   /**
