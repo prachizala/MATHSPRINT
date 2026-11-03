@@ -105,7 +105,7 @@ Unlike conventional quiz apps, **MathSprint** is engineered from the ground up w
 
 ```bash
 # Clone the repository
-git clone https://github.com/<YOUR-USERNAME>/MATHSPRINT.git
+git clone https://github.com/prachizala/MATHSPRINT.git
 cd MATHSPRINT
 
 # Install frontend dependencies
