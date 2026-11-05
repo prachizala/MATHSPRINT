@@ -1,6 +1,12 @@
 # ⚡ MATHSPRINT — Real-Time Competitive Classroom Math Battle Arena
 
+> **Silver Oak University (SOU) Mini Hackathon Project • Team Leader: Prachi Zala**  
 > High-intensity, 2-minute competitive mathematics battle platform with server-authoritative scoring, real-time live telemetry, data-driven learning analytics, and adaptive difficulty-based practice.
+
+[![Silver Oak Mini Hackathon](https://img.shields.io/badge/Hackathon-Silver_Oak_University_Mini_Hackathon-orange?style=flat-square)](https://github.com/prachizala)
+[![Role](https://img.shields.io/badge/Role-Team_Leader-brightgreen?style=flat-square)](https://github.com/prachizala)
+[![React Native](https://img.shields.io/badge/React_Native-Expo-black.svg)](https://expo.dev/)
+[![Firebase](https://img.shields.io/badge/Firebase-RTDB-FFCA28?style=flat-square&logo=firebase&logoColor=black)](https://firebase.google.com/)
 
 ---
 
