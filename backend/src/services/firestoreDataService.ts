@@ -16,6 +16,7 @@ const memoryQuestions = new Map<string, FirestoreQuestion>();
 const memorySprints = new Map<string, FirestoreSprint>();
 const memoryAnswers = new Map<string, FirestoreAnswer>();
 const memoryScores = new Map<string, FirestoreScore>();
+const memoryElo = new Map<string, number>();
 
 // Seed comprehensive question bank: 24 questions across Arithmetic, Logic, Algebra
 const seedQuestions: FirestoreQuestion[] = [
@@ -828,5 +829,21 @@ export class FirestoreDataService {
     return Array.from(memoryScores.values())
       .filter((s) => s.studentId === studentId)
       .sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+  static async getStudentElo(studentId: string): Promise<number> {
+    if (isFirebaseAdminInitialized && adminFirestore) {
+      const snap = await adminFirestore.collection('users').doc(studentId).get();
+      if (snap.exists && snap.data()?.eloRating) {
+        return snap.data()?.eloRating;
+      }
+    }
+    return memoryElo.get(studentId) || 1200;
+  }
+
+  static async saveStudentElo(studentId: string, elo: number): Promise<void> {
+    memoryElo.set(studentId, elo);
+    if (isFirebaseAdminInitialized && adminFirestore) {
+      await adminFirestore.collection('users').doc(studentId).set({ eloRating: elo }, { merge: true });
+    }
   }
 }

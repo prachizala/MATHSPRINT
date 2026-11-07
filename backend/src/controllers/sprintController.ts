@@ -5,6 +5,7 @@ import { FirestoreDataService } from '../services/firestoreDataService';
 import { RealtimeSprintService } from '../services/realtimeSprintService';
 import { SprintService } from '../services/sprintService';
 import { ScoringService } from '../services/scoringService';
+import { EloRatingService } from '../services/eloRatingService';
 import {
   FirestoreSprint,
   FirestoreLobby,

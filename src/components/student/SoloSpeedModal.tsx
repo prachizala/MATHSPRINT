@@ -15,6 +15,7 @@ import { Button, Card, Badge, ProgressBar } from '../common';
 import { mockQuestions } from '../../data/mockData';
 import { Question } from '../../types';
 import { SensoryFeedback } from '../../utils/audioFeedback';
+import { SoundEffects } from '../../utils/soundEffects';
 
 interface SoloSpeedModalProps {
   visible: boolean;
@@ -70,11 +71,12 @@ export const SoloSpeedModal: React.FC<SoloSpeedModalProps> = ({ visible, onClose
         setTimeLeft((prev) => {
           if (prev <= 1) {
             clearInterval(timerRef.current!);
+            SoundEffects.playBattleFinish();
             setGameState('FINISHED');
             return 0;
           }
-          if (prev === 10) {
-            SensoryFeedback.triggerClockWarning();
+          if (prev === 10 || prev === 5) {
+            SoundEffects.playCountdownTick();
           }
           return prev - 1;
         });
@@ -95,12 +97,12 @@ export const SoloSpeedModal: React.FC<SoloSpeedModalProps> = ({ visible, onClose
     const isCorrect = currentQ && opt === currentQ.answer;
 
     if (isCorrect) {
-      SensoryFeedback.triggerCorrectAnswer();
+      SoundEffects.playCorrect();
       const newStreak = streak + 1;
       setStreak(newStreak);
       if (newStreak > bestStreak) setBestStreak(newStreak);
       if (newStreak >= 3) {
-        SensoryFeedback.triggerStreakMilestone(newStreak);
+        SoundEffects.playStreakFanfare(newStreak);
       }
 
       // Calculation: Base 100 + speed bonus + streak multiplier
@@ -110,7 +112,7 @@ export const SoloSpeedModal: React.FC<SoloSpeedModalProps> = ({ visible, onClose
       setScore((prev) => prev + earned);
       setCorrectCount((prev) => prev + 1);
     } else {
-      SensoryFeedback.triggerIncorrectAnswer();
+      SoundEffects.playIncorrect();
       setStreak(0);
     }
 
@@ -122,6 +124,7 @@ export const SoloSpeedModal: React.FC<SoloSpeedModalProps> = ({ visible, onClose
         setIsAnswerChecked(false);
       } else {
         if (timerRef.current) clearInterval(timerRef.current);
+        SoundEffects.playBattleFinish();
         setGameState('FINISHED');
       }
     }, 850);

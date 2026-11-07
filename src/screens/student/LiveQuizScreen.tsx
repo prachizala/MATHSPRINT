@@ -19,7 +19,7 @@ import { formatPoints } from '../../utils/formatters';
 import { SprintApi } from '../../services/api/sprintApi';
 import { RealtimeService } from '../../services/firebase/realtimeService';
 import { Question } from '../../types';
-import { SensoryFeedback } from '../../utils/audioFeedback';
+import { SoundEffects } from '../../utils/soundEffects';
 
 type Props = NativeStackScreenProps<StudentStackParamList, 'LiveQuiz'>;
 
@@ -41,6 +41,11 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
   const [teacherAnnouncement, setTeacherAnnouncement] = useState<{ message: string; timestamp: number } | null>(null);
   const [rivalryText, setRivalryText] = useState<string>('');
 
+  // Adaptive AI Difficulty Engine states
+  const [eloRating, setEloRating] = useState<number>(1200);
+  const [lastEloDelta, setLastEloDelta] = useState<number | null>(null);
+  const [adaptiveHardTriggered, setAdaptiveHardTriggered] = useState<boolean>(false);
+
   const questionStartTimeRef = useRef(Date.now());
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const endTimeRef = useRef<number>(Date.now() + 120000);
@@ -51,6 +56,7 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
     if (isFinishedRef.current) return;
     isFinishedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
+    SoundEffects.playBattleFinish();
     navigation.replace('FinalResult', { lobbyId });
   };
 
@@ -156,7 +162,7 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
       const remaining = Math.max(0, Math.floor((endTimeRef.current - Date.now()) / 1000));
       setRemainingTime(remaining);
       if (remaining === 10 || remaining === 5) {
-        SensoryFeedback.triggerClockWarning();
+        SoundEffects.playCountdownTick();
       }
       if (remaining <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
@@ -188,17 +194,45 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
 
       if (response && response.correct !== undefined) {
         if (response.correct) {
-          SensoryFeedback.triggerCorrectAnswer();
+          SoundEffects.playCorrect();
           const newStreak = (response.streak !== undefined) ? response.streak : streak + 1;
           setStreak(newStreak);
           if (newStreak > bestStreak) setBestStreak(newStreak);
+
+          // Audio: Streak Fanfare on 2x, 3x, 5x
           if (newStreak >= 2) {
-            SensoryFeedback.triggerStreakMilestone(newStreak);
+            SoundEffects.playStreakFanfare(newStreak);
           }
+
+          // Adaptive AI Difficulty Engine:
+          // If student has answered 3 questions in a row quickly (streak >= 3),
+          // automatically trigger hard Algebra / Logic difficulty next!
+          if (newStreak >= 3) {
+            setAdaptiveHardTriggered(true);
+            SoundEffects.playHardUpgradeAlert();
+
+            // Reorder upcoming questions: pull hard Algebra/Logic problem to front
+            setQuestions((prevQuestions) => {
+              const remaining = [...prevQuestions];
+              const upcomingIndex = currentIndex + 1;
+              const hardCandidateIndex = remaining.findIndex(
+                (q, idx) =>
+                  idx > currentIndex &&
+                  (q.difficulty === 'hard' || q.topic === 'Algebra' || q.topic === 'Logic')
+              );
+              if (hardCandidateIndex > -1 && hardCandidateIndex !== upcomingIndex) {
+                const [targetQ] = remaining.splice(hardCandidateIndex, 1);
+                remaining.splice(upcomingIndex, 0, targetQ);
+              }
+              return remaining;
+            });
+          }
+
           setCorrectCount((prev) => prev + 1);
         } else {
-          SensoryFeedback.triggerIncorrectAnswer();
+          SoundEffects.playIncorrect();
           setStreak(0);
+          setAdaptiveHardTriggered(false);
         }
 
         if (response.totalScore !== undefined) {
@@ -206,16 +240,22 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
         } else if (response.pointsAwarded) {
           setScore((prev) => prev + response.pointsAwarded);
         }
+
+        // Update Math Elo rating telemetry
+        if ((response as any).eloRating) {
+          setEloRating((response as any).eloRating);
+          setLastEloDelta((response as any).eloDelta);
+        }
       } else {
         // Fallback scoring
-        SensoryFeedback.triggerCorrectAnswer();
+        SoundEffects.playCorrect();
         setScore((prev) => prev + 100);
         setStreak((prev) => prev + 1);
         setCorrectCount((prev) => prev + 1);
       }
     } catch (err) {
       console.warn('[LiveQuiz] Answer submission server fallback:', err);
-      SensoryFeedback.triggerCorrectAnswer();
+      SoundEffects.playCorrect();
       setScore((prev) => prev + 100);
       setStreak((prev) => prev + 1);
       setCorrectCount((prev) => prev + 1);
@@ -248,11 +288,27 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Top Header: Score & Streak Pills */}
+        {/* Top Header: Score, Elo Rating & Streak Pills */}
         <View style={styles.topMetricsRow}>
           <View style={styles.scoreTag}>
             <Ionicons name="flash" size={16} color={theme.colors.primary} />
             <Text style={styles.scoreText}>{formatPoints(score)} PTS</Text>
+          </View>
+
+          {/* Dynamic Math Elo Skill Rating Pill */}
+          <View style={styles.eloTag}>
+            <Ionicons name="stats-chart" size={14} color="#8B5CF6" />
+            <Text style={styles.eloText}>{eloRating} ELO</Text>
+            {lastEloDelta !== null && (
+              <Text
+                style={[
+                  styles.eloDeltaText,
+                  { color: lastEloDelta >= 0 ? theme.colors.green : theme.colors.danger },
+                ]}
+              >
+                {lastEloDelta >= 0 ? `+${lastEloDelta}` : lastEloDelta}
+              </Text>
+            )}
           </View>
 
           {streak > 1 ? (
@@ -295,6 +351,17 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         ) : null}
 
+        {/* Adaptive AI Hard Difficulty Upgrade Banner */}
+        {adaptiveHardTriggered && !isPaused && (
+          <View style={styles.hardUpgradeBanner}>
+            <Ionicons name="sparkles" size={18} color="#FFF" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hardUpgradeTitle}>🔥 3-STREAK AI SURGE: HARD DIFFICULTY UNLOCKED!</Text>
+              <Text style={styles.hardUpgradeSub}>Adaptive Engine switched to advanced Algebra & Multi-step Logic (+Bonus Elo)</Text>
+            </View>
+          </View>
+        )}
+
         {/* Paused by Teacher Banner */}
         {isPaused && (
           <View style={styles.pausedBanner}>
@@ -336,7 +403,11 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* Topic & Difficulty Meta Bar */}
         <View style={styles.metaRow}>
           <Badge label={String(currentQuestion.topic)} variant="primary" size="sm" />
-          <Badge label={`${currentQuestion.difficulty.toUpperCase()} • +100 PTS`} variant="cyan" size="sm" />
+          <Badge
+            label={`${currentQuestion.difficulty.toUpperCase()} • ${currentQuestion.difficulty === 'hard' ? '+150 PTS (HARD)' : '+100 PTS'}`}
+            variant={currentQuestion.difficulty === 'hard' ? 'purple' : 'cyan'}
+            size="sm"
+          />
         </View>
 
         {/* Question Prompt Card */}
@@ -401,38 +472,59 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
+    gap: 4,
   },
   scoreTag: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.primaryLight,
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
     borderColor: theme.colors.primary,
   },
   scoreText: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: theme.typography.sizes.xs,
     fontWeight: '800',
     color: theme.colors.primaryDark,
-    marginLeft: 4,
+    marginLeft: 3,
+  },
+  eloTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: '#C084FC',
+    gap: 3,
+  },
+  eloText: {
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: '900',
+    color: '#6B21A8',
+  },
+  eloDeltaText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
   streakTag: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.orangeLight,
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
     borderColor: theme.colors.orange,
   },
   streakText: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: theme.typography.sizes.xs,
     fontWeight: '800',
     color: theme.colors.orangeDark,
-    marginLeft: 4,
+    marginLeft: 3,
   },
   timerCard: {
     marginBottom: theme.spacing.xs,
@@ -472,6 +564,27 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: theme.colors.purple,
+  },
+  hardUpgradeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#7C3AED',
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.xs,
+  },
+  hardUpgradeTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: 0.4,
+  },
+  hardUpgradeSub: {
+    fontSize: 9,
+    color: '#DDD6FE',
+    marginTop: 1,
   },
   pausedBanner: {
     flexDirection: 'row',
