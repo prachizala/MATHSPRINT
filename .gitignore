@@ -45,3 +45,4 @@ backend/dist/
 # generated native folders
 /ios
 /android
+*.apk
