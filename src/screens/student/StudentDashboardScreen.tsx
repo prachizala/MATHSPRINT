@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,7 +51,7 @@ export const StudentDashboardScreen: React.FC = () => {
         subtitle={`Welcome back, ${user?.name || 'Aarav'}!`}
         rightElement={
           <Button
-            title="Teacher View"
+            title="Teacher ⇄"
             size="sm"
             variant="ghost"
             leftIcon={<Ionicons name="swap-horizontal" size={14} color={theme.colors.primary} />}
