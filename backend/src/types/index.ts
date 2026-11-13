@@ -11,6 +11,8 @@ export interface FirestoreUser {
   email: string;
   role: UserRole;
   class?: string;
+  eloRating?: number;
+  eloTier?: string;
   createdAt: number;
 }
 
@@ -97,6 +99,8 @@ export interface FirestoreScore {
   streak: number;
   correctAnswers: number;
   totalQuestions: number;
+  eloRating?: number;
+  eloDelta?: number;
   updatedAt: number;
 }
 
@@ -108,6 +112,7 @@ export interface LiveSprintParticipant {
   answered: number;
   score: number;
   streak: number;
+  eloRating?: number;
   lastUpdate: number;
   status?: 'Thinking' | 'Answered';
 }
@@ -119,6 +124,7 @@ export interface LiveSprintLeaderboardEntry {
   rank: number;
   streak?: number;
   accuracy?: number;
+  eloRating?: number;
   status?: 'Thinking' | 'Answered';
 }
 
@@ -145,4 +151,14 @@ export interface ScoringResult {
   speedBonus: number;
   streakBonus: number;
   totalPoints: number;
+}
+
+// Elo Calculation result
+export interface EloCalculationResult {
+  previousElo: number;
+  newElo: number;
+  delta: number;
+  tier: string;
+  nextDifficulty: DifficultyLevel;
+  triggeredHardUpgrade: boolean;
 }

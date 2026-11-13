@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,7 +51,7 @@ export const StudentDashboardScreen: React.FC = () => {
         subtitle={`Welcome back, ${user?.name || 'Aarav'}!`}
         rightElement={
           <Button
-            title="Teacher View"
+            title="Teacher ⇄"
             size="sm"
             variant="ghost"
             leftIcon={<Ionicons name="swap-horizontal" size={14} color={theme.colors.primary} />}
@@ -95,6 +96,18 @@ export const StudentDashboardScreen: React.FC = () => {
             style={styles.soloBtn}
           />
         </Card>
+
+        {/* Dynamic Math Elo Skill Rating Strip */}
+        <View style={styles.eloHeroBar}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="stats-chart" size={16} color="#7C3AED" />
+            <Text style={styles.eloHeroTitle}>Adaptive Math Elo</Text>
+          </View>
+          <View style={styles.eloHeroBadge}>
+            <Text style={styles.eloHeroValue}>{performance.eloRating || 1380} ELO</Text>
+            <Text style={styles.eloHeroTier}>• {performance.eloTier || 'Gold Tactician'}</Text>
+          </View>
+        </View>
 
         {/* 4 Core Stat Cards: Rank, Total Points, Accuracy, Best Streak */}
         <Text style={styles.sectionHeading}>Your Sprint Metrics</Text>
@@ -307,5 +320,37 @@ const styles = StyleSheet.create({
   },
   fairPlay: {
     marginTop: theme.spacing.md,
+  },
+  eloHeroBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F3E8FF',
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: theme.spacing.xs,
+    borderWidth: 1,
+    borderColor: '#D8B4FE',
+  },
+  eloHeroTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#6B21A8',
+  },
+  eloHeroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  eloHeroValue: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#7C3AED',
+  },
+  eloHeroTier: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B21A8',
   },
 });
