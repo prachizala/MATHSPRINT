@@ -13,6 +13,8 @@ import {
   QuestionOption,
   FairCompetitionCard,
 } from '../../components/common';
+import { GhostRacerTrack } from '../../components/student/GhostRacerTrack';
+import { TacticalPowerUpDock, PowerUpInventory } from '../../components/student/TacticalPowerUpDock';
 import { mockQuestions, mockLobby } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
 import { formatPoints } from '../../utils/formatters';
@@ -46,11 +48,23 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
   const [lastEloDelta, setLastEloDelta] = useState<number | null>(null);
   const [adaptiveHardTriggered, setAdaptiveHardTriggered] = useState<boolean>(false);
 
+  // Tactical Power-Ups states
+  const [powerUpInventory, setPowerUpInventory] = useState<PowerUpInventory>({
+    shield: true,
+    fiftyFifty: true,
+    timeFreeze: true,
+  });
+  const [activeShield, setActiveShield] = useState<boolean>(false);
+  const [isTimeFrozen, setIsTimeFrozen] = useState<boolean>(false);
+  const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
+  const [shieldDeflectedNotice, setShieldDeflectedNotice] = useState<boolean>(false);
+
   const questionStartTimeRef = useRef(Date.now());
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const endTimeRef = useRef<number>(Date.now() + 120000);
   const isFinishedRef = useRef(false);
   const isPausedRef = useRef(false);
+  const isTimeFrozenRef = useRef(false);
 
   const handleSprintFinish = () => {
     if (isFinishedRef.current) return;
@@ -158,7 +172,7 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
   useEffect(() => {
     questionStartTimeRef.current = Date.now();
     timerRef.current = setInterval(() => {
-      if (isPausedRef.current) return;
+      if (isPausedRef.current || isTimeFrozenRef.current) return;
       const remaining = Math.max(0, Math.floor((endTimeRef.current - Date.now()) / 1000));
       setRemainingTime(remaining);
       if (remaining === 10 || remaining === 5) {
@@ -174,6 +188,36 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
+
+  // Tactical Power-Up Activations
+  const handleActivateShield = () => {
+    setPowerUpInventory((prev) => ({ ...prev, shield: false }));
+    setActiveShield(true);
+  };
+
+  const handleActivateFiftyFifty = () => {
+    if (!currentQuestion) return;
+    setPowerUpInventory((prev) => ({ ...prev, fiftyFifty: false }));
+
+    // Eliminate 2 wrong options
+    const wrong = currentQuestion.options.filter(
+      (opt) => !currentQuestion.answer || opt !== currentQuestion.answer
+    );
+    const eliminated = wrong.slice(0, 2);
+    setEliminatedOptions(eliminated);
+  };
+
+  const handleActivateTimeFreeze = () => {
+    setPowerUpInventory((prev) => ({ ...prev, timeFreeze: false }));
+    setIsTimeFrozen(true);
+    isTimeFrozenRef.current = true;
+    endTimeRef.current += 5000; // Extend timer deadline by 5 seconds
+
+    setTimeout(() => {
+      setIsTimeFrozen(false);
+      isTimeFrozenRef.current = false;
+    }, 5000);
+  };
 
   // Submit Answer to Secure Backend
   const handleSubmitAnswer = async () => {
@@ -230,9 +274,17 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
 
           setCorrectCount((prev) => prev + 1);
         } else {
-          SoundEffects.playIncorrect();
-          setStreak(0);
-          setAdaptiveHardTriggered(false);
+          // If Streak Shield is active, deflect the mistake and protect streak!
+          if (activeShield) {
+            SoundEffects.playShieldDeflect();
+            setActiveShield(false);
+            setShieldDeflectedNotice(true);
+            setTimeout(() => setShieldDeflectedNotice(false), 3000);
+          } else {
+            SoundEffects.playIncorrect();
+            setStreak(0);
+            setAdaptiveHardTriggered(false);
+          }
         }
 
         if (response.totalScore !== undefined) {
@@ -266,6 +318,7 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
       if (currentIndex + 1 < totalQuestions) {
         setCurrentIndex((prev) => prev + 1);
         setSelectedOption(null);
+        setEliminatedOptions([]);
         setIsSubmitted(false);
         setSpeedBonusAwarded(false);
         questionStartTimeRef.current = Date.now();
@@ -327,8 +380,16 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
         <TimerCard
           remainingSeconds={remainingTime}
           totalSeconds={120}
-          label={isPaused ? 'BATTLE PAUSED' : '2-MINUTE SPRINT TIMER'}
+          label={isTimeFrozen ? '⏱️ CLOCK FROZEN (5s FREEZE)' : isPaused ? 'BATTLE PAUSED' : '2-MINUTE SPRINT TIMER'}
           style={styles.timerCard}
+        />
+
+        {/* Ghost Racer • Mario Kart-Style Pace Benchmark Mini-Track */}
+        <GhostRacerTrack
+          currentQuestionIndex={currentIndex}
+          totalQuestions={totalQuestions}
+          remainingSeconds={remainingTime}
+          totalSeconds={120}
         />
 
         {/* Teacher Broadcast Announcement Banner */}
@@ -350,6 +411,16 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
             </Text>
           </View>
         ) : null}
+
+        {/* Streak Shield Deflection Alert */}
+        {shieldDeflectedNotice && (
+          <View style={styles.shieldNoticeBanner}>
+            <Ionicons name="shield-checkmark" size={18} color="#059669" />
+            <Text style={styles.shieldNoticeText}>
+              🛡️ STREAK SHIELD DEFLECTED THE MISTAKE! Multiplier protected!
+            </Text>
+          </View>
+        )}
 
         {/* Adaptive AI Hard Difficulty Upgrade Banner */}
         {adaptiveHardTriggered && !isPaused && (
@@ -415,18 +486,33 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.questionText}>{currentQuestion.question}</Text>
         </Card>
 
+        {/* Tactical Battle Power-Ups Dock */}
+        <TacticalPowerUpDock
+          inventory={powerUpInventory}
+          activeShield={activeShield}
+          isTimeFrozen={isTimeFrozen}
+          onActivateShield={handleActivateShield}
+          onActivateFiftyFifty={handleActivateFiftyFifty}
+          onActivateTimeFreeze={handleActivateTimeFreeze}
+          disabled={isSubmitted || isPaused}
+        />
+
         {/* 4 Multiple Choice Answer Options (Never reveal answer during active sprint) */}
         <View style={styles.optionsContainer}>
-          {currentQuestion.options.map((option, idx) => (
-            <QuestionOption
-              key={idx}
-              index={idx}
-              text={option}
-              isSelected={selectedOption === option}
-              disabled={isSubmitted || isPaused}
-              onPress={() => setSelectedOption(option)}
-            />
-          ))}
+          {currentQuestion.options.map((option, idx) => {
+            const isEliminated = eliminatedOptions.includes(option);
+            return (
+              <QuestionOption
+                key={idx}
+                index={idx}
+                text={isEliminated ? `${option} ✖ (Eliminated)` : option}
+                isSelected={selectedOption === option}
+                disabled={isSubmitted || isPaused || isEliminated}
+                onPress={() => setSelectedOption(option)}
+                style={isEliminated ? { opacity: 0.35, backgroundColor: '#F1F5F9' } : undefined}
+              />
+            );
+          })}
         </View>
 
         {/* SUBMIT ANSWER CTA */}
@@ -565,6 +651,24 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: theme.colors.purple,
   },
+  shieldNoticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.xs,
+  },
+  shieldNoticeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#065F46',
+    flex: 1,
+  },
   hardUpgradeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -655,7 +759,7 @@ const styles = StyleSheet.create({
     minHeight: 120,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.xs,
     borderLeftWidth: 4,
     borderLeftColor: theme.colors.primary,
   },

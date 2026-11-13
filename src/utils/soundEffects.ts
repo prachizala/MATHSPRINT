@@ -43,10 +43,8 @@ export class SoundEffects {
    * Correct Answer Chime: Crisp ascending 3-note arpeggio (E5 -> G#5 -> B5)
    */
   static playCorrect() {
-    // 1. Trigger haptic vibration pulse
     SensoryFeedback.triggerCorrectAnswer();
 
-    // 2. Synthesize audio chime if Web Audio API is available
     if (!this.soundEnabled) return;
     const ctx = this.getContext();
     if (!ctx) return;
@@ -116,7 +114,6 @@ export class SoundEffects {
 
     try {
       const now = ctx.currentTime;
-      // C5, E5, G5, C6 triumphant chord
       const chord = [523.25, 659.25, 783.99, 1046.5];
       chord.forEach((freq, idx) => {
         const osc = ctx.createOscillator();
@@ -164,6 +161,97 @@ export class SoundEffects {
 
       osc.start(now);
       osc.stop(now + 0.25);
+    } catch (_) {}
+  }
+
+  /**
+   * Tactical Power-Up Activation Chime (Shield, 50-50, Time Freeze)
+   */
+  static playPowerUpActivate() {
+    SensoryFeedback.triggerCorrectAnswer();
+
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      [587.33, 880, 1174.66].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+
+        gain.gain.setValueAtTime(0.16, now + idx * 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.18);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now + idx * 0.04);
+        osc.stop(now + idx * 0.04 + 0.18);
+      });
+    } catch (_) {}
+  }
+
+  /**
+   * Streak Shield Deflection: Metallic chime when a mistake is absorbed
+   */
+  static playShieldDeflect() {
+    SensoryFeedback.triggerStreakMilestone(2);
+
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(900, now);
+      osc.frequency.exponentialRampToValueAtTime(400, now + 0.18);
+
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.18);
+    } catch (_) {}
+  }
+
+  /**
+   * Time Freeze Sound: Sub-bass time dilation pulse
+   */
+  static playTimeFreeze() {
+    SensoryFeedback.triggerCorrectAnswer();
+
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(160, now + 0.3);
+
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.35);
     } catch (_) {}
   }
 

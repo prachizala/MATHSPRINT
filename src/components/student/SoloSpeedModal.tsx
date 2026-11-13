@@ -14,6 +14,8 @@ import { theme } from '../../theme';
 import { Button, Card, Badge, ProgressBar } from '../common';
 import { mockQuestions } from '../../data/mockData';
 import { Question } from '../../types';
+import { GhostRacerTrack } from './GhostRacerTrack';
+import { TacticalPowerUpDock, PowerUpInventory } from './TacticalPowerUpDock';
 import { SensoryFeedback } from '../../utils/audioFeedback';
 import { SoundEffects } from '../../utils/soundEffects';
 
@@ -39,6 +41,15 @@ export const SoloSpeedModal: React.FC<SoloSpeedModalProps> = ({ visible, onClose
   const [timeLeft, setTimeLeft] = useState<number>(60);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswerChecked, setIsAnswerChecked] = useState<boolean>(false);
+  const [powerUpInventory, setPowerUpInventory] = useState<PowerUpInventory>({
+    shield: true,
+    fiftyFifty: true,
+    timeFreeze: true,
+  });
+  const [activeShield, setActiveShield] = useState<boolean>(false);
+  const [isTimeFrozen, setIsTimeFrozen] = useState<boolean>(false);
+  const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
+  const [shieldNotice, setShieldNotice] = useState<boolean>(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -128,6 +139,25 @@ export const SoloSpeedModal: React.FC<SoloSpeedModalProps> = ({ visible, onClose
         setGameState('FINISHED');
       }
     }, 850);
+  };
+
+  const handleActivateShield = () => {
+    setPowerUpInventory((prev) => ({ ...prev, shield: false }));
+    setActiveShield(true);
+  };
+
+  const handleActivateFiftyFifty = () => {
+    if (!currentQ) return;
+    setPowerUpInventory((prev) => ({ ...prev, fiftyFifty: false }));
+    const wrong = currentQ.options.filter((opt) => opt !== currentQ.answer);
+    setEliminatedOptions(wrong.slice(0, 2));
+  };
+
+  const handleActivateTimeFreeze = () => {
+    setPowerUpInventory((prev) => ({ ...prev, timeFreeze: false }));
+    setIsTimeFrozen(true);
+    setTimeLeft((prev) => prev + 5);
+    setTimeout(() => setIsTimeFrozen(false), 5000);
   };
 
   const handleClose = () => {
