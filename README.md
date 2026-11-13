@@ -24,25 +24,47 @@ Unlike conventional quiz apps, **MathSprint** is engineered from the ground up w
 - **6-Digit Authoritative Lobby PIN**: Teachers create a sprint, configure custom duration (`60s`, `90s`, `120s`, `180s`) and question count (`5`, `10`, `15`, `20`), and generate a secure PIN.
 - **Fair-Play Real-Time Leaderboard**: Live rankings update dynamically with dynamic scoring (+100 base pts, +20 lightning speed bonus for <3.5s answers, and escalating streak multipliers).
 - **Teacher Battle Command**: Teachers have complete live control with **Pause**, **Resume**, **End**, and **Cancel** controls. Pausing freezes the clock across all connected devices and locks answer options.
+- **Teacher Live Battle Alerts**: Real-time broadcast system for teachers to send motivational alerts and sprint updates directly to contestant screens mid-battle.
 
-### 🛡️ 2. Anti-Cheat & Fair Play Architecture
+### 🏎️ 2. Ghost Racer / Shadow Runner Track
+- **Mario Kart-Style Benchmark Track**: Visual real-time race track displayed directly atop the sprint arena.
+- **Classroom Pace Telemetry**: Compares the student runner (`🏃`) against the classroom median pace ghost (`👻`) in real-time.
+- **Dynamic Advantage Indicators**: Live advantage badge updates dynamically (`🏃 You lead Class Benchmark by +2 Qs!`, `⚡ Neck-and-neck!`, `👻 Ghost is ahead!`).
+
+### 🛡️ 3. Tactical Battle Power-Ups Dock
+- **Single-Use Strategic Cards**: Students are equipped with 3 tactical power-ups during live battles and solo speed practice:
+  - 🛡️ **Streak Shield**: Protects streak multipliers and prevents reset upon an incorrect answer.
+  - 🎯 **50:50 Eliminator**: Instantly eliminates two incorrect answer choices from the current question.
+  - ⏱️ **Time Freeze (+5s)**: Grants 5 additional seconds to the countdown clock for complex questions.
+- **Zero-Asset Procedural Sound Synthesizer**: Web Audio API sound engine that synthesizes real-time countdown pulses, correct/incorrect harmonics, streak fanfare, power-up activation, shield deflection, and freeze ticks.
+
+### ♟️ 4. Adaptive AI Difficulty Engine (Chess-Style Math Elo)
+- **Dynamic Elo Rating (1000–2400)**: Calculates student skill level dynamically using standard Elo probability formulas based on accuracy and solve speed.
+- **Live Difficulty Promotion / Demotion**: Students maintaining a 3+ correct streak are automatically promoted to harder problem tiers (Algebra / Complex Multi-step Logic), while struggling students receive restorative fundamentals.
+- **Elo Progression Tier Badges**: Bronze (1000–1200), Silver (1201–1400), Gold (1401–1600), Platinum (1601–1800), Diamond (1801–2000), and Grandmaster (2000+).
+
+### ⚔️ 5. Head-to-Head Live Rivalry Widget
+- **Rival Tracking Telemetry**: Pinpoints the competitor positioned directly one rank above the student on the leaderboard.
+- **Gap & Pace Differential**: Real-time points gap (`Only 80 pts behind Rival!`) and response speed comparison to fuel healthy competitive drive.
+
+### 🛡️ 6. Anti-Cheat & Fair Play Architecture
 - **Zero Client Answer Exposure**: Question payloads sent to students during active sprints contain strictly `questionId`, `question`, and `options`. Answer keys and explanations are stored safely on the server and only unlocked *after* the sprint officially terminates.
 - **Server-Authoritative Clock**: Client devices cannot manipulate remaining time. The backend rejects any submissions received after the official `endedAt` timestamp.
 - **Duplicate Prevention**: Anti-cheat guards strictly reject duplicate submissions on the same question with `409 Conflict`.
 
-### 📊 3. Real, Data-Driven Learning Analytics
+### 📊 7. Real, Data-Driven Learning Analytics
 - **Question-by-Question Diagnostics**: Class accuracy per problem, identification of the hardest and easiest questions, and class-wide common misconceptions.
 - **Topic Mastery Breakdown**: Granular evaluation across Arithmetic, Logic, Algebra, Fractions, Geometry, and Percentages.
 - **Intervention Detection**: Automated identification of students who may need targeted support based on accuracy thresholds and response times.
 
-### 🎯 4. Adaptive Difficulty-Based Practice
+### 🎯 8. Adaptive Difficulty-Based Practice
 - **Performance-Aware Drills**: When students launch practice drills (`drill-arithmetic`, `drill-algebra`, etc.), the system analyzes their historical topic accuracy:
   - **Tier 1 (<60% Accuracy)**: 60% Easy, 30% Medium, 10% Hard questions.
   - **Tier 2 (60%–80% Accuracy)**: 20% Easy, 60% Medium, 20% Hard questions.
   - **Tier 3 (>80% Accuracy)**: 10% Easy, 40% Medium, 50% Hard questions.
 - **Isolated Practice Mode**: Practice drills run independently without impacting live classroom battles.
 
-### 📶 5. Smart Polling & Offline Resilience
+### 📶 9. Smart Polling & Offline Resilience
 - **Dual-Layer Synchronization**: Combines Firebase Realtime Database for instant push updates with an automatic HTTP polling fallback (2–2.5s) if RTDB is offline, blocked, or experiencing network latency.
 - **In-App Server Config Modal**: Seamlessly inspect current server IP, test ping latency, and switch target hosts on the fly (`Laptop LAN`, `Android Emulator 10.0.2.2`, `Localhost`).
 - **One-Tap Report Sharing**: Teachers can instantly share formatted classroom battle reports and podium standings via native device sharing.
