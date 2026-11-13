@@ -2,9 +2,11 @@
   "name": "mathsprint",
   "version": "1.0.0",
   "description": "MATHSPRINT - High-intensity 2-minute competitive classroom math battle arena with real-time telemetry, learning analytics, and adaptive practice.",
-  "main": "index.ts",
+  "main": "index.js",
   "scripts": {
-    "start": "expo start",
+    "start": "node index.js",
+    "build": "npm --prefix backend install && npm --prefix backend run build",
+    "expo": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
