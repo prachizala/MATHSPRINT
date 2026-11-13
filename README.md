@@ -1,185 +1,148 @@
-# ⚡ MATHSPRINT — Real-Time Competitive Classroom Math Battle Arena
+# MathSprint — Real-Time Competitive Classroom Math Battle Arena
 
-> **Silver Oak University (SOU) Mini Hackathon Project • Team Leader: Prachi Zala**  
-> High-intensity, 2-minute competitive mathematics battle platform with server-authoritative scoring, real-time live telemetry, data-driven learning analytics, and adaptive difficulty-based practice.
-
-[![Silver Oak Mini Hackathon](https://img.shields.io/badge/Hackathon-Silver_Oak_University_Mini_Hackathon-orange?style=flat-square)](https://github.com/prachizala)
-[![Role](https://img.shields.io/badge/Role-Team_Leader-brightgreen?style=flat-square)](https://github.com/prachizala)
-[![React Native](https://img.shields.io/badge/React_Native-Expo-black.svg)](https://expo.dev/)
+[![Hackathon: Silver Oak Mini Hackathon](https://img.shields.io/badge/Hackathon-Silver_Oak_University_Mini_Hackathon-orange?style=flat-square)](https://github.com/prachizala)
+[![Role: Team Leader](https://img.shields.io/badge/Role-Team_Leader-brightgreen?style=flat-square)](https://github.com/prachizala)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React Native](https://img.shields.io/badge/React_Native-Expo-000020.svg?style=flat-square&logo=expo&logoColor=white)](https://expo.dev/)
+[![Node.js](https://img.shields.io/badge/Node.js-Express_4.21-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![Firebase](https://img.shields.io/badge/Firebase-RTDB-FFCA28?style=flat-square&logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+
+> **Real-time multiplayer classroom mathematics battle arena with server-authoritative anti-cheat scoring, live telemetry, and adaptive difficulty drills.**
+
+Developed as a Team Leader project at the **Silver Oak University (SOU) Mini Hackathon**, MathSprint transforms routine math drill practice into an exciting, fair-play classroom battle where students race against a server-synchronized clock.
 
 ---
 
-## 📖 Overview
+## 🎯 The Problem It Solves
 
-**MathSprint** transforms traditional math practice into an electrifying, fair-play classroom battle. In each sprint, students compete live against their peers to solve rapid-fire arithmetic, logic, algebra, geometry, and percentage problems under a strict server-synced clock. 
-
-Unlike conventional quiz apps, **MathSprint** is engineered from the ground up with a **zero-trust, server-authoritative architecture**: answers are verified exclusively on the backend, questions sent to clients never contain answer keys, and timers are governed strictly by server timestamps.
-
----
-
-## 🌟 Key Features
-
-### ⚡ 1. Live 2-Minute Classroom Sprint Battles
-- **6-Digit Authoritative Lobby PIN**: Teachers create a sprint, configure custom duration (`60s`, `90s`, `120s`, `180s`) and question count (`5`, `10`, `15`, `20`), and generate a secure PIN.
-- **Fair-Play Real-Time Leaderboard**: Live rankings update dynamically with dynamic scoring (+100 base pts, +20 lightning speed bonus for <3.5s answers, and escalating streak multipliers).
-- **Teacher Battle Command**: Teachers have complete live control with **Pause**, **Resume**, **End**, and **Cancel** controls. Pausing freezes the clock across all connected devices and locks answer options.
-
-### 🛡️ 2. Anti-Cheat & Fair Play Architecture
-- **Zero Client Answer Exposure**: Question payloads sent to students during active sprints contain strictly `questionId`, `question`, and `options`. Answer keys and explanations are stored safely on the server and only unlocked *after* the sprint officially terminates.
-- **Server-Authoritative Clock**: Client devices cannot manipulate remaining time. The backend rejects any submissions received after the official `endedAt` timestamp.
-- **Duplicate Prevention**: Anti-cheat guards strictly reject duplicate submissions on the same question with `409 Conflict`.
-
-### 📊 3. Real, Data-Driven Learning Analytics
-- **Question-by-Question Diagnostics**: Class accuracy per problem, identification of the hardest and easiest questions, and class-wide common misconceptions.
-- **Topic Mastery Breakdown**: Granular evaluation across Arithmetic, Logic, Algebra, Fractions, Geometry, and Percentages.
-- **Intervention Detection**: Automated identification of students who may need targeted support based on accuracy thresholds and response times.
-
-### 🎯 4. Adaptive Difficulty-Based Practice
-- **Performance-Aware Drills**: When students launch practice drills (`drill-arithmetic`, `drill-algebra`, etc.), the system analyzes their historical topic accuracy:
-  - **Tier 1 (<60% Accuracy)**: 60% Easy, 30% Medium, 10% Hard questions.
-  - **Tier 2 (60%–80% Accuracy)**: 20% Easy, 60% Medium, 20% Hard questions.
-  - **Tier 3 (>80% Accuracy)**: 10% Easy, 40% Medium, 50% Hard questions.
-- **Isolated Practice Mode**: Practice drills run independently without impacting live classroom battles.
-
-### 📶 5. Smart Polling & Offline Resilience
-- **Dual-Layer Synchronization**: Combines Firebase Realtime Database for instant push updates with an automatic HTTP polling fallback (2–2.5s) if RTDB is offline, blocked, or experiencing network latency.
-- **In-App Server Config Modal**: Seamlessly inspect current server IP, test ping latency, and switch target hosts on the fly (`Laptop LAN`, `Android Emulator 10.0.2.2`, `Localhost`).
-- **One-Tap Report Sharing**: Teachers can instantly share formatted classroom battle reports and podium standings via native device sharing.
+* **Classroom Math Engagement:** Traditional textbook drills and passive worksheets fail to engage students or provide immediate, actionable feedback to teachers.
+* **Cheating in Online Quizzes:** Most mobile quiz applications expose answer keys inside the client-side JSON bundle or allow client-side timer manipulation.
+* **Our Solution:** A **zero-trust, server-authoritative architecture**:
+  * Question payloads delivered to student devices never contain answer keys.
+  * Timers are governed strictly by server timestamps; late submissions are automatically rejected.
+  * Dual-layer real-time sync via Firebase Realtime Database with intelligent polling fallbacks.
 
 ---
 
-## 🏗️ System Architecture
+## 🚀 Key Features
+
+* ⚡ **Live 2-Minute Sprint Battles:** Teachers launch a sprint with custom durations (`60s`, `90s`, `120s`, `180s`) and a 6-digit lobby PIN.
+* 🛡️ **Anti-Cheat Scoring Engine:** Dynamic point scoring (+100 base pts, +20 lightning speed bonus for <3.5s answers, and escalating streak multipliers) verified server-side.
+* 📊 **Live Leaderboard & Telemetry:** Instant ranking shifts rendered with fluid animations as students submit solutions.
+* 👩‍🏫 **Teacher Battle Command:** Real-time **Pause**, **Resume**, **End**, and **Cancel** controls. Pausing freezes the clock across all connected devices and locks answer options.
+* 📈 **Diagnostic Learning Analytics:** Per-question accuracy, identification of common misconceptions, and topic mastery breakdown (Arithmetic, Logic, Algebra, Geometry, Percentages).
+* 🎯 **Adaptive Practice Drills:** Performance-aware solo practice drills that adjust problem difficulty based on student historical accuracy.
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technologies & Tools |
+| :--- | :--- |
+| **Mobile Client** | React Native (Expo SDK 57), React Navigation v7, TypeScript 5.7 |
+| **Backend API** | Node.js, Express 4.21, TypeScript, ts-node-dev |
+| **Real-Time Data & Sync** | Firebase Realtime Database (RTDB), Firestore, In-Memory fallbacks |
+| **UI & Styling** | Custom neon/dark token design system, `@expo/vector-icons` |
+| **Testing & Quality** | TypeScript strict mode, Node.js E2E battle simulations |
+
+---
+
+## 📂 Project Structure
 
 ```
-┌────────────────────────────────────────────────────────┐
-│                   React Native / Expo Client            │
-│  (Student Arena, Live Quiz, Monitoring, Analytics)     │
-└───────────────▲────────────────────────▲───────────────┘
-                │                        │
-       REST API │ (HTTP / JSON)          │ RTDB Listeners /
-       Auth / Scoring                    │ Smart Polling Fallback
-                │                        │
-┌───────────────▼───────────────┐ ┌──────▼───────────────┐
-│     Node.js / Express API     │ │ Firebase Realtime DB │
-│   - Server scoring & anti-cheat│ │ - Live sprint state  │
-│   - Timer enforcement         │ │ - Live leaderboard   │
-│   - Adaptive question engine  │ │ - Active contestants │
-└───────────────┬───────────────┘ └──────────────────────┘
-                │
-┌───────────────▼───────────────┐
-│     Firestore Data Store      │
-│   - 50+ Verified Questions    │
-│   - Sprints, Lobbies, Users   │
-│   - Completed Answers & Scores│
-└───────────────────────────────┘
+MATHSPRINT/
+├── App.tsx                     # React Native application root entrypoint
+├── app.json                    # Expo configuration and mobile metadata
+├── package.json                # Mobile client dependencies and scripts
+├── tsconfig.json               # TypeScript compiler options
+├── src/                        # Mobile client source code
+│   ├── components/             # Reusable UI widgets (cards, timers, buttons)
+│   ├── screens/                # Mobile views (Lobby, Battle, Leaderboard, Drills)
+│   ├── navigation/             # Stack and tab navigation controllers
+│   └── services/               # API clients and Firebase listeners
+├── backend/                    # Express + TypeScript authoritative server
+│   ├── package.json            # Server dependencies
+│   ├── tsconfig.json           # Server TypeScript config
+│   ├── src/                    # Backend controllers, models, and scoring logic
+│   ├── test-backend.js         # API unit and route tests
+│   └── test-e2e-sprint.js      # Phase 4 end-to-end battle simulation
+└── firebase/                   # Firebase security rules and configuration
 ```
 
 ---
 
-## 🔌 API Reference
+## 💻 Installation & Run Guide (Tested)
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| `GET` | `/api/health` | Public | System status & server health check |
-| `POST` | `/api/sprints` | Teacher | Create a new sprint with custom timeLimit & questionCount |
-| `POST` | `/api/sprints/:id/lobby` | Teacher | Open lobby and generate authoritative 6-digit PIN |
-| `POST` | `/api/lobbies/join` | Student | Join sprint lobby via 6-digit PIN |
-| `POST` | `/api/sprints/:id/start` | Teacher | Launch sprint battle (WAITING -> LIVE) |
-| `POST` | `/api/sprints/:id/pause` | Teacher | Pause sprint clock and freeze student submission |
-| `POST` | `/api/sprints/:id/resume` | Teacher | Resume paused sprint clock |
-| `POST` | `/api/sprints/:id/end` | Teacher | Finalize sprint (LIVE -> ENDED) |
-| `POST` | `/api/sprints/:id/cancel` | Teacher | Cancel active sprint battle |
-| `POST` | `/api/sprints/:id/answers` | Student | Submit answer with responseTimeMs for server scoring |
-| `GET` | `/api/sprints/:id/leaderboard` | Authenticated | Live leaderboard standings & points |
-| `GET` | `/api/sprints/:id/result` | Authenticated | Unlocked answers & solutions after sprint ends |
-| `GET` | `/api/teacher/sprints` | Teacher | Teacher sprint history |
-| `GET` | `/api/teacher/analytics` | Teacher | Real-time classroom learning analytics |
-| `GET` | `/api/students/performance` | Student | Student topic mastery & weak topic analysis |
-| `GET` | `/api/students/recommendations` | Student | Adaptive drill recommendations |
+### 1. Prerequisites
+* **Node.js 18+** & npm installed
+* **Expo Go** app installed on your physical mobile device (Android or iOS)
 
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- **Node.js**: v18 or later
-- **npm**: v9 or later
-- **Expo Go** app installed on your physical mobile device (Android / iOS)
-
-### 1. Clone & Install Dependencies
-
+### 2. Backend Server Setup
 ```bash
-# Clone the repository
-git clone https://github.com/prachizala/MATHSPRINT.git
-cd MATHSPRINT
+# Navigate to backend directory
+cd backend
 
-# Install frontend dependencies
+# Install dependencies
 npm install
 
-# Install backend dependencies
-cd backend
-npm install
-cd ..
-```
-
-### 2. Configure Environment Variables
-
-**Frontend (`.env` in root):**
-```env
-EXPO_PUBLIC_API_URL=http://<YOUR_LAN_IP>:5000/api
-```
-*(Tip: Replace `<YOUR_LAN_IP>` with your machine's Wi-Fi IPv4 address, e.g., `192.168.1.100`)*
-
-**Backend (`backend/.env`):**
-```env
-PORT=5000
-NODE_ENV=development
-```
-
-### 3. Start the Backend Server
-
-```bash
-cd backend
+# Start development server
 npm run dev
 ```
-The server will boot and display your local network IP:
-```text
-🚀 MATHSPRINT Server active on http://0.0.0.0:5000
-📡 Accessible on LAN at: http://192.168.x.x:5000/api
+* Server will boot on `http://localhost:5000` (and broadcast your LAN IP for physical device connection).
+
+### 3. Run Backend Verification Tests
+```bash
+# Verify backend API endpoints and scoring logic
+node test-backend.js
+
+# Run full end-to-end multiplayer battle simulation
+node test-e2e-sprint.js
 ```
 
-### 4. Start the Mobile Client
-
-In a separate terminal:
+### 4. Mobile Client Setup
 ```bash
+# Return to root directory
+cd ..
+
+# Install client dependencies
+npm install
+
+# Start Expo development server
 npm start
 ```
-Scan the displayed QR code using the **Expo Go** app on your phone.
+* Scan the displayed terminal QR code using **Expo Go** on your phone.
 
 ---
 
-## 🧪 Testing & Verification
+## 📸 Screenshots & Demo
 
-The project includes automated regression and end-to-end battle test suites:
-
-```bash
-# Run TypeScript compilation check
-npm run typecheck
-npm --prefix backend run typecheck
-
-# Run backend core API unit tests
-node backend/test-backend.js
-
-# Run full Phase 4 End-to-End Battle Simulation
-node backend/test-e2e-sprint.js
-```
+| 📱 Student Battle Arena | 📊 Live Leaderboard | 👩‍🏫 Teacher Command Center |
+| :---: | :---: | :---: |
+| *(Placeholder: Battle Screen)* | *(Placeholder: Leaderboard)* | *(Placeholder: Teacher Dashboard)* |
 
 ---
 
-## 📱 Tech Stack
+## 🔮 Future Improvements
 
-- **Client**: React Native 0.86, Expo SDK 57, React Navigation v7, TypeScript 5.7
-- **Backend**: Node.js, Express 4.21, TypeScript, ts-node-dev
-- **Database & Sync**: Firebase Firestore, Firebase Realtime Database (with fallback in-memory store)
-- **Icons & Styling**: `@expo/vector-icons`, custom dark/neon design token system
+1. **WebSockets (Socket.io) Primary Channel:** Transition from Firebase RTDB polling to persistent bi-directional WebSockets for sub-50ms latency.
+2. **AI Question Generator:** Integration with local LLMs to generate curriculum-aligned math problems automatically.
+3. **Sound FX & Haptics:** Audio cues for combo streaks, countdown ticks, and victory fanfare.
+4. **Offline Bluetooth Mesh Battles:** Allow peer-to-peer classroom battles without active internet connection.
+
+---
+
+## 👩‍💻 Author & Maintainer
+
+**Prachi Zala**  
+*Hackathon Team Leader | BCA Student @ Shanti Business School, Ahmedabad*  
+
+* **LinkedIn:** [linkedin.com/in/prachi-zala-74a08b334](https://www.linkedin.com/in/prachi-zala-74a08b334)  
+* **GitHub:** [github.com/prachizala](https://github.com/prachizala)  
+* **Portfolio:** [prachizala.github.io/prachi-portfolio](https://prachizala.github.io/prachi-portfolio/)
+
+---
+
+## 📄 License
+
+This project is open-source under the [MIT License](LICENSE).
