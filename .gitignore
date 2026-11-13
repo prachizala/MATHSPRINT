@@ -5,9 +5,13 @@ node_modules/
 
 # Expo
 .expo/
-dist/
+/dist/
 web-build/
 expo-env.d.ts
+
+# allow backend compiled dist
+!backend/dist/
+!backend/dist/**
 
 # Native
 .kotlin/
@@ -37,7 +41,6 @@ yarn-error.*
 
 # backend
 backend/node_modules/
-backend/dist/
 
 # typescript
 *.tsbuildinfo
