@@ -1,179 +1,185 @@
-# ⚡ MATHSPRINT — Real-Time Competitive Classroom Math Battle Arena
+# MATHSPRINT — Real-Time Competitive Math Battle Arena ⚡📐
 
-> High-intensity, 2-minute competitive mathematics battle platform with server-authoritative scoring, real-time live telemetry, data-driven learning analytics, and adaptive difficulty-based practice.
+[![React Native](https://img.shields.io/badge/Frontend-React_Native_Expo-000020?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
+[![TypeScript](https://img.shields.io/badge/Language-TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js / Express](https://img.shields.io/badge/Backend-Node.js_Express-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://expressjs.com/)
+[![Firebase](https://img.shields.io/badge/Realtime-Firebase_Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![Tests Passing](https://img.shields.io/badge/Tests-Passing-10B981?style=for-the-badge&logo=jest&logoColor=white)](backend/test-backend.js)
+[![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B?style=for-the-badge)](LICENSE)
 
----
-
-## 📖 Overview
-
-**MathSprint** transforms traditional math practice into an electrifying, fair-play classroom battle. In each sprint, students compete live against their peers to solve rapid-fire arithmetic, logic, algebra, geometry, and percentage problems under a strict server-synced clock. 
-
-Unlike conventional quiz apps, **MathSprint** is engineered from the ground up with a **zero-trust, server-authoritative architecture**: answers are verified exclusively on the backend, questions sent to clients never contain answer keys, and timers are governed strictly by server timestamps.
-
----
-
-## 🌟 Key Features
-
-### ⚡ 1. Live 2-Minute Classroom Sprint Battles
-- **6-Digit Authoritative Lobby PIN**: Teachers create a sprint, configure custom duration (`60s`, `90s`, `120s`, `180s`) and question count (`5`, `10`, `15`, `20`), and generate a secure PIN.
-- **Fair-Play Real-Time Leaderboard**: Live rankings update dynamically with dynamic scoring (+100 base pts, +20 lightning speed bonus for <3.5s answers, and escalating streak multipliers).
-- **Teacher Battle Command**: Teachers have complete live control with **Pause**, **Resume**, **End**, and **Cancel** controls. Pausing freezes the clock across all connected devices and locks answer options.
-
-### 🛡️ 2. Anti-Cheat & Fair Play Architecture
-- **Zero Client Answer Exposure**: Question payloads sent to students during active sprints contain strictly `questionId`, `question`, and `options`. Answer keys and explanations are stored safely on the server and only unlocked *after* the sprint officially terminates.
-- **Server-Authoritative Clock**: Client devices cannot manipulate remaining time. The backend rejects any submissions received after the official `endedAt` timestamp.
-- **Duplicate Prevention**: Anti-cheat guards strictly reject duplicate submissions on the same question with `409 Conflict`.
-
-### 📊 3. Real, Data-Driven Learning Analytics
-- **Question-by-Question Diagnostics**: Class accuracy per problem, identification of the hardest and easiest questions, and class-wide common misconceptions.
-- **Topic Mastery Breakdown**: Granular evaluation across Arithmetic, Logic, Algebra, Fractions, Geometry, and Percentages.
-- **Intervention Detection**: Automated identification of students who may need targeted support based on accuracy thresholds and response times.
-
-### 🎯 4. Adaptive Difficulty-Based Practice
-- **Performance-Aware Drills**: When students launch practice drills (`drill-arithmetic`, `drill-algebra`, etc.), the system analyzes their historical topic accuracy:
-  - **Tier 1 (<60% Accuracy)**: 60% Easy, 30% Medium, 10% Hard questions.
-  - **Tier 2 (60%–80% Accuracy)**: 20% Easy, 60% Medium, 20% Hard questions.
-  - **Tier 3 (>80% Accuracy)**: 10% Easy, 40% Medium, 50% Hard questions.
-- **Isolated Practice Mode**: Practice drills run independently without impacting live classroom battles.
-
-### 📶 5. Smart Polling & Offline Resilience
-- **Dual-Layer Synchronization**: Combines Firebase Realtime Database for instant push updates with an automatic HTTP polling fallback (2–2.5s) if RTDB is offline, blocked, or experiencing network latency.
-- **In-App Server Config Modal**: Seamlessly inspect current server IP, test ping latency, and switch target hosts on the fly (`Laptop LAN`, `Android Emulator 10.0.2.2`, `Localhost`).
-- **One-Tap Report Sharing**: Teachers can instantly share formatted classroom battle reports and podium standings via native device sharing.
+> **High-intensity 2-minute competitive classroom math battle platform engineered with real-time telemetry, server-authoritative anti-cheat clocks, and adaptive diagnostic analytics.**
 
 ---
 
-## 🏗️ System Architecture
+## 🎯 The Problem It Solves
+
+Traditional classroom math drills and homework assignments often suffer from low student engagement, delayed grading feedback, and rampant answer copying. Existing gamified quiz tools (like Kahoot or Quizizz) rely on broad multiple-choice trivia and do not offer granular mathematical diagnostics, speed telemetry, or adaptive difficulty tiers.
+
+**MATHSPRINT** transforms math practice into an adrenaline-filled, multiplayer live sprint:
+1. **Real-Time Synchronous Battles:** Students duel simultaneously across a room or campus in timed 120-second rounds.
+2. **Server-Authoritative Anti-Cheat:** Question payloads sent to clients contain *zero* answer keys or explanations. Answers are verified exclusively server-side.
+3. **Data-Driven Diagnostics:** Teachers receive immediate question-by-question misconception reports, identifying exact areas where students stumble (e.g., negative integers, fraction division, or algebraic expansion).
+
+---
+
+## 📸 System Architecture & Game Experience
 
 ```
-┌────────────────────────────────────────────────────────┐
-│                   React Native / Expo Client            │
-│  (Student Arena, Live Quiz, Monitoring, Analytics)     │
-└───────────────▲────────────────────────▲───────────────┘
-                │                        │
-       REST API │ (HTTP / JSON)          │ RTDB Listeners /
-       Auth / Scoring                    │ Smart Polling Fallback
-                │                        │
-┌───────────────▼───────────────┐ ┌──────▼───────────────┐
-│     Node.js / Express API     │ │ Firebase Realtime DB │
-│   - Server scoring & anti-cheat│ │ - Live sprint state  │
-│   - Timer enforcement         │ │ - Live leaderboard   │
-│   - Adaptive question engine  │ │ - Active contestants │
-└───────────────┬───────────────┘ └──────────────────────┘
-                │
-┌───────────────▼───────────────┐
-│     Firestore Data Store      │
-│   - 50+ Verified Questions    │
-│   - Sprints, Lobbies, Users   │
-│   - Completed Answers & Scores│
-└───────────────────────────────┘
++-----------------------------------------------------------------------------------------+
+|                                  MATHSPRINT ARCHITECTURE                                |
++-----------------------------------------------------------------------------------------+
+|                                                                                         |
+|   +-----------------------+              +-----------------------+                      |
+|   |   Student Mobile App  |              |   Teacher Dashboard   |                      |
+|   |  (React Native Expo)  |              |    (Live Analytics)   |                      |
+|   +-----------+-----------+              +-----------+-----------+                      |
+|               |                                      |                                  |
+|               | Real-Time Event Sync                 | Admin Commands (Pause/Resume/End)|
+|               v                                      v                                  |
+|   +------------------------------------------------------+                              |
+|   |         Express & TypeScript Game Server Engine      |                              |
+|   |   - Server-Authoritative 120s Countdown Timer        |                              |
+|   |   - Dynamic Algorithmic Math Problem Generator       |                              |
+|   |   - Anti-Duplicate & Anti-Tamper Payload Validator   |                              |
+|   +---------------------------+--------------------------+                              |
+|                               |                                                         |
+|                               v                                                         |
+|   +------------------------------------------------------+                              |
+|   |          Firebase Firestore & Realtime DB            |                              |
+|   |   - Live Leaderboard Broadcast                       |                              |
+|   |   - Granular Telemetry Logs & Misconception Matrix   |                              |
+|   +------------------------------------------------------+                              |
++-----------------------------------------------------------------------------------------+
+```
+
+```
++---------------------------+   +---------------------------+   +---------------------------+
+|      STUDENT SPRINT       |   |     LIVE LEADERBOARD      |   |    TEACHER DIAGNOSTICS    |
++---------------------------+   +---------------------------+   +---------------------------+
+| ⏱️ 01:42 | Streak: x4 🔥  |   | 🏆 1st: Aarav S. (4,250)  |   | Class Accuracy: 84%       |
+|                           |   | 🥈 2nd: Prachi Z. (3,980) |   | Hardest: Q7 (Fractions)   |
+| Solve for x:              |   | 🥉 3rd: Rohan M. (3,710)  |   | Easiest: Q2 (Addition)    |
+|   3x - 7 = 14             |   |                           |   |                           |
+|                           |   | Recent Submissions:       |   | Common Misconception:     |
+| [ A: 5 ]     [ B: 7 ]     |   | * Prachi: Q8 +150pts (1.1s|   | Sign error when moving -7 |
+| [ C: 9 ]     [ D: 6 ]     |   | * Aarav:  Q8 +150pts (0.9s|   |                           |
+|                           |   |                           |   | [Pause Match] [Export CSV]|
++---------------------------+   +---------------------------+   +---------------------------+
+```
+*(Screenshot placeholders: `./docs/screenshots/gameplay.png`, `./docs/screenshots/leaderboard.png`)*
+
+---
+
+## ⚡ Core Features
+
+* 🎮 **Multiplayer Live Duels:** Students join sprint rooms via 6-character room codes. Dynamic scoring awards points based on answer accuracy and reaction latency (< 1.5s triggers bonus multipliers).
+* 🛡️ **Anti-Cheat & Fair-Play Protocols:**
+  * **Zero Client Answer Exposure:** Client receives only `questionId`, `prompt`, and scrambled options. Correct answer keys are kept strictly on the Node.js server.
+  * **Authoritative Clock:** The server rejects any submission timestamped after the official `endedAt` epoch, preventing network latency hacking.
+  * **Idempotency Protection:** Rejects duplicate submissions on the same question with `409 Conflict`.
+* 👨‍🏫 **Teacher Battle Command:** Real-time administrative controls: **Pause**, **Resume**, **Extend Time**, or **Terminate**. Pausing freezes all client timers and locks answer buttons instantly.
+* 📈 **Adaptive Practice Drills:** Personalized solo training modes that dynamically adjust difficulty based on historic topic mastery:
+  * **Tier 1 (<60% Accuracy):** 60% Foundational, 30% Intermediate, 10% Advanced.
+  * **Tier 2 (60%–80% Accuracy):** 20% Foundational, 60% Intermediate, 20% Advanced.
+  * **Tier 3 (>80% Accuracy):** 10% Foundational, 40% Intermediate, 50% Advanced.
+
+---
+
+## 🛠️ Tech Stack & Dependencies
+
+- **Frontend Mobile App:** React Native 0.86, Expo 57, React 19, React Navigation 7, TypeScript 5.7
+- **Backend Service:** Node.js 22+, Express 4.21, TypeScript, ts-node-dev
+- **Cloud & Realtime Infrastructure:** Firebase Realtime Database, Cloud Firestore, Firebase Security Rules
+- **Automated Testing:** Node.js native test harness & E2E sprint simulator (`backend/test-backend.js`, `backend/test-e2e-sprint.js`)
+
+---
+
+## 📂 Project Structure
+
+```
+MATHSPRINT/
+│
+├── App.tsx                     # Main React Native entrypoint
+├── app.json                    # Expo configuration & app manifests
+├── package.json                # Frontend dependencies and scripts
+├── tsconfig.json               # TypeScript compiler configuration
+├── firestore.rules             # Production security rules for Firestore
+├── database.rules.json         # Realtime Database security rules
+│
+├── assets/                     # App icons, splash screens, and badges
+├── docs/                       # Architecture documentation & presentations
+│   └── presentations/          # CyberForge hackathon pitch deck & whitepapers
+│
+├── src/                        # React Native source code
+│   ├── components/             # Reusable UI components (Timer, ScoreCard, QuestionCard)
+│   ├── navigation/             # Navigation stacks & tab bars
+│   ├── context/                # Global game state & authentication contexts
+│   ├── hooks/                  # Custom hooks (useTimer, useSprintSocket)
+│   └── types/                  # TypeScript interface definitions
+│
+└── backend/                    # Node.js + Express game server
+    ├── package.json            # Backend dependencies & test scripts
+    ├── tsconfig.json           # Backend TypeScript build config
+    ├── test-backend.js         # Automated HTTP & API unit test suite
+    ├── test-e2e-sprint.js      # Multi-client simulated sprint test
+    └── src/
+        ├── index.ts            # Server entrypoint & listener
+        ├── server.ts           # Express application setup
+        ├── routes/             # REST endpoints (sprint creation, join, submit)
+        └── services/           # Question generation engine & scoring logic
 ```
 
 ---
 
-## 🔌 API Reference
-
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| `GET` | `/api/health` | Public | System status & server health check |
-| `POST` | `/api/sprints` | Teacher | Create a new sprint with custom timeLimit & questionCount |
-| `POST` | `/api/sprints/:id/lobby` | Teacher | Open lobby and generate authoritative 6-digit PIN |
-| `POST` | `/api/lobbies/join` | Student | Join sprint lobby via 6-digit PIN |
-| `POST` | `/api/sprints/:id/start` | Teacher | Launch sprint battle (WAITING -> LIVE) |
-| `POST` | `/api/sprints/:id/pause` | Teacher | Pause sprint clock and freeze student submission |
-| `POST` | `/api/sprints/:id/resume` | Teacher | Resume paused sprint clock |
-| `POST` | `/api/sprints/:id/end` | Teacher | Finalize sprint (LIVE -> ENDED) |
-| `POST` | `/api/sprints/:id/cancel` | Teacher | Cancel active sprint battle |
-| `POST` | `/api/sprints/:id/answers` | Student | Submit answer with responseTimeMs for server scoring |
-| `GET` | `/api/sprints/:id/leaderboard` | Authenticated | Live leaderboard standings & points |
-| `GET` | `/api/sprints/:id/result` | Authenticated | Unlocked answers & solutions after sprint ends |
-| `GET` | `/api/teacher/sprints` | Teacher | Teacher sprint history |
-| `GET` | `/api/teacher/analytics` | Teacher | Real-time classroom learning analytics |
-| `GET` | `/api/students/performance` | Student | Student topic mastery & weak topic analysis |
-| `GET` | `/api/students/recommendations` | Student | Adaptive drill recommendations |
-
----
-
-## 🚀 Getting Started
+## 🚀 Setup & Execution Guide
 
 ### Prerequisites
-- **Node.js**: v18 or later
-- **npm**: v9 or later
-- **Expo Go** app installed on your physical mobile device (Android / iOS)
+- [Node.js 18+](https://nodejs.org/)
+- [Expo CLI](https://docs.expo.dev/get-started/installation/)
+- [Git](https://git-scm.com/)
 
-### 1. Clone & Install Dependencies
-
+### 1. Clone the repository
 ```bash
-# Clone the repository
-git clone https://github.com/<YOUR-USERNAME>/MATHSPRINT.git
+git clone https://github.com/prachizala/MATHSPRINT.git
 cd MATHSPRINT
-
-# Install frontend dependencies
-npm install
-
-# Install backend dependencies
-cd backend
-npm install
-cd ..
 ```
 
-### 2. Configure Environment Variables
-
-**Frontend (`.env` in root):**
-```env
-EXPO_PUBLIC_API_URL=http://<YOUR_LAN_IP>:5000/api
-```
-*(Tip: Replace `<YOUR_LAN_IP>` with your machine's Wi-Fi IPv4 address, e.g., `192.168.1.100`)*
-
-**Backend (`backend/.env`):**
-```env
-PORT=5000
-NODE_ENV=development
-```
-
-### 3. Start the Backend Server
-
+### 2. Run the Backend Game Server
 ```bash
 cd backend
+npm install
 npm run dev
 ```
-The server will boot and display your local network IP:
-```text
-🚀 MATHSPRINT Server active on http://0.0.0.0:5000
-📡 Accessible on LAN at: http://192.168.x.x:5000/api
+The server will boot up at `http://localhost:5000` (or configured `PORT`).
+
+### 3. Run Backend Test Suite
+```bash
+cd backend
+npm test
 ```
 
-### 4. Start the Mobile Client
-
-In a separate terminal:
+### 4. Run the Mobile Application (Expo)
+In the root `MATHSPRINT/` directory:
 ```bash
+npm install
 npm start
 ```
-Scan the displayed QR code using the **Expo Go** app on your phone.
+- Press **`a`** to launch on an Android emulator or device connected via ADB.
+- Press **`w`** to launch in the web browser.
+- Scan the QR code using the **Expo Go** app on your physical mobile phone.
 
 ---
 
-## 🧪 Testing & Verification
-
-The project includes automated regression and end-to-end battle test suites:
-
-```bash
-# Run TypeScript compilation check
-npm run typecheck
-npm --prefix backend run typecheck
-
-# Run backend core API unit tests
-node backend/test-backend.js
-
-# Run full Phase 4 End-to-End Battle Simulation
-node backend/test-e2e-sprint.js
-```
+## 🔮 Future Enhancements
+- [ ] Add AI-generated custom story-based math word problems using LLM APIs.
+- [ ] Implement team relay mode (3 vs 3 classroom teams passing the sprint baton).
+- [ ] Add sound effects and haptic feedback on correct answer streaks.
 
 ---
 
-## 📱 Tech Stack
+## 👤 Author & Hackathon Team
 
-- **Client**: React Native 0.86, Expo SDK 57, React Navigation v7, TypeScript 5.7
-- **Backend**: Node.js, Express 4.21, TypeScript, ts-node-dev
-- **Database & Sync**: Firebase Firestore, Firebase Realtime Database (with fallback in-memory store)
-- **Icons & Styling**: `@expo/vector-icons`, custom dark/neon design token system
+**Prachi Zala**  
+- **Role:** Full-Stack Lead & Realtime Systems Architect  
+- **GitHub:** [@prachizala](https://github.com/prachizala)  
+- **LinkedIn:** [Prachi Zala](https://www.linkedin.com/in/prachi-zala-74a08b334/)
