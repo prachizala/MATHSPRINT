@@ -49,3 +49,12 @@ backend/node_modules/
 /ios
 /android
 *.apk
+
+# AI Tooling & Local Agent Configs
+.claude/
+.gemini/
+.cursor/
+.agent/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
