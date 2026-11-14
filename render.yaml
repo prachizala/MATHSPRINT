@@ -3,7 +3,8 @@ services:
     name: mathsprint-backend
     runtime: node
     plan: free
-    buildCommand: npm run build
+    rootDir: backend
+    buildCommand: npm install && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
