@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { TeacherStackParamList, TeacherTabParamList } from './types';
 import { theme } from '../theme';
@@ -22,13 +23,23 @@ const Tab = createBottomTabNavigator<TeacherTabParamList>();
 const Stack = createNativeStackNavigator<TeacherStackParamList>();
 
 const TeacherTabNavigator: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'android' ? 10 : 8);
+  const barHeight = 56 + bottomPadding;
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.colors.purple,
         tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: barHeight,
+            paddingBottom: bottomPadding,
+          },
+        ],
         tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
@@ -68,7 +79,7 @@ const TeacherTabNavigator: React.FC = () => {
         options={{
           tabBarLabel: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -85,10 +96,7 @@ export const TeacherNavigator: React.FC = () => {
         animation: 'slide_from_right',
       }}
     >
-      {/* Main Tab Shell */}
       <Stack.Screen name="TeacherTabs" component={TeacherTabNavigator} />
-
-      {/* Direct routes for compatibility and nested actions */}
       <Stack.Screen name="TeacherDashboard" component={TeacherDashboardScreen} />
       <Stack.Screen name="CreateSprint" component={CreateSprintScreen} />
       <Stack.Screen name="SprintSettings" component={SprintSettingsScreen} />
@@ -109,8 +117,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
-    height: Platform.OS === 'ios' ? 84 : 62,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
     paddingTop: 8,
     ...theme.shadows.sm,
   },

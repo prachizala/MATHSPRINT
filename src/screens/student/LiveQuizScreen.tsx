@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { StudentStackParamList } from '../../navigation/types';
@@ -13,13 +14,15 @@ import {
   QuestionOption,
   FairCompetitionCard,
 } from '../../components/common';
+import { GhostRacerTrack } from '../../components/student/GhostRacerTrack';
+import { TacticalPowerUpDock, PowerUpInventory } from '../../components/student/TacticalPowerUpDock';
 import { mockQuestions, mockLobby } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
 import { formatPoints } from '../../utils/formatters';
 import { SprintApi } from '../../services/api/sprintApi';
 import { RealtimeService } from '../../services/firebase/realtimeService';
 import { Question } from '../../types';
-import { SensoryFeedback } from '../../utils/audioFeedback';
+import { SoundEffects } from '../../utils/soundEffects';
 
 type Props = NativeStackScreenProps<StudentStackParamList, 'LiveQuiz'>;
 
@@ -38,17 +41,37 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [speedBonusAwarded, setSpeedBonusAwarded] = useState(false);
+  const [teacherAnnouncement, setTeacherAnnouncement] = useState<{ message: string; timestamp: number } | null>(null);
+  const [rivalryText, setRivalryText] = useState<string>('');
+
+  // Adaptive AI Difficulty Engine states
+  const [eloRating, setEloRating] = useState<number>(1200);
+  const [lastEloDelta, setLastEloDelta] = useState<number | null>(null);
+  const [adaptiveHardTriggered, setAdaptiveHardTriggered] = useState<boolean>(false);
+
+  // Tactical Power-Ups states
+  const [powerUpInventory, setPowerUpInventory] = useState<PowerUpInventory>({
+    shield: true,
+    fiftyFifty: true,
+    timeFreeze: true,
+  });
+  const [activeShield, setActiveShield] = useState<boolean>(false);
+  const [isTimeFrozen, setIsTimeFrozen] = useState<boolean>(false);
+  const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
+  const [shieldDeflectedNotice, setShieldDeflectedNotice] = useState<boolean>(false);
 
   const questionStartTimeRef = useRef(Date.now());
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const endTimeRef = useRef<number>(Date.now() + 120000);
   const isFinishedRef = useRef(false);
   const isPausedRef = useRef(false);
+  const isTimeFrozenRef = useRef(false);
 
   const handleSprintFinish = () => {
     if (isFinishedRef.current) return;
     isFinishedRef.current = true;
     if (timerRef.current) clearInterval(timerRef.current);
+    SoundEffects.playBattleFinish();
     navigation.replace('FinalResult', { lobbyId });
   };
 
@@ -96,6 +119,53 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
     };
   }, [lobbyId]);
 
+  // Periodic Telemetry: Teacher Announcement & Head-to-Head Rivalry
+  useEffect(() => {
+    let isMounted = true;
+
+    const pollLiveTelemetry = async () => {
+      try {
+        // 1. Check for active Teacher Broadcast Announcement
+        const ann = await SprintApi.getAnnouncement(lobbyId);
+        if (isMounted && ann?.message) {
+          if (Date.now() - ann.timestamp < 45000) {
+            setTeacherAnnouncement(ann);
+          } else {
+            setTeacherAnnouncement(null);
+          }
+        }
+
+        // 2. Head-to-Head Rivalry Telemetry
+        const lb = await SprintApi.getSprintLeaderboard(lobbyId);
+        if (isMounted && Array.isArray(lb) && lb.length >= 2) {
+          const myIdx = lb.findIndex(
+            (p: any) => p.studentId === user?.userId || p.name === user?.name
+          );
+          if (myIdx === 0) {
+            // Rank #1
+            const nextContestant = lb[1];
+            const gap = Math.max(10, (lb[0].score || score) - (nextContestant.score || 0));
+            setRivalryText(`👑 DEFENDING LEAD: ${nextContestant.name} is ${gap} PTS behind!`);
+          } else if (myIdx > 0) {
+            const competitorAbove = lb[myIdx - 1];
+            const gap = Math.max(10, (competitorAbove.score || 0) - score);
+            setRivalryText(`⚔️ RIVAL ALERT: ${competitorAbove.name} (#${myIdx}) is +${gap} PTS ahead!`);
+          } else {
+            const leader = lb[0];
+            setRivalryText(`⚔️ TARGET PODIUM: Chase #1 ${leader.name} (${leader.score} PTS)`);
+          }
+        }
+      } catch (_) {}
+    };
+
+    pollLiveTelemetry();
+    const interval = setInterval(pollLiveTelemetry, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [lobbyId, score]);
+
   const totalQuestions = questions.length;
   const currentQuestion = questions[currentIndex];
 
@@ -103,11 +173,11 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
   useEffect(() => {
     questionStartTimeRef.current = Date.now();
     timerRef.current = setInterval(() => {
-      if (isPausedRef.current) return;
+      if (isPausedRef.current || isTimeFrozenRef.current) return;
       const remaining = Math.max(0, Math.floor((endTimeRef.current - Date.now()) / 1000));
       setRemainingTime(remaining);
       if (remaining === 10 || remaining === 5) {
-        SensoryFeedback.triggerClockWarning();
+        SoundEffects.playCountdownTick();
       }
       if (remaining <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
@@ -120,6 +190,36 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
     };
   }, []);
 
+  // Tactical Power-Up Activations
+  const handleActivateShield = () => {
+    setPowerUpInventory((prev) => ({ ...prev, shield: false }));
+    setActiveShield(true);
+  };
+
+  const handleActivateFiftyFifty = () => {
+    if (!currentQuestion) return;
+    setPowerUpInventory((prev) => ({ ...prev, fiftyFifty: false }));
+
+    // Eliminate 2 wrong options
+    const wrong = currentQuestion.options.filter(
+      (opt) => !currentQuestion.answer || opt !== currentQuestion.answer
+    );
+    const eliminated = wrong.slice(0, 2);
+    setEliminatedOptions(eliminated);
+  };
+
+  const handleActivateTimeFreeze = () => {
+    setPowerUpInventory((prev) => ({ ...prev, timeFreeze: false }));
+    setIsTimeFrozen(true);
+    isTimeFrozenRef.current = true;
+    endTimeRef.current += 5000; // Extend timer deadline by 5 seconds
+
+    setTimeout(() => {
+      setIsTimeFrozen(false);
+      isTimeFrozenRef.current = false;
+    }, 5000);
+  };
+
   // Submit Answer to Secure Backend
   const handleSubmitAnswer = async () => {
     if (!selectedOption || isSubmitted || isPaused || !currentQuestion) return;
@@ -131,65 +231,109 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
     }
 
     try {
-      const serverResult = await SprintApi.submitAnswer(lobbyId, {
+      const response = await SprintApi.submitAnswer(lobbyId, {
         questionId: currentQuestion.questionId,
         selectedAnswer: selectedOption,
         responseTimeMs,
       });
 
-      setScore(serverResult.totalScore);
-      setStreak(serverResult.streak);
-      if (serverResult.correct) {
-        SensoryFeedback.triggerCorrectAnswer();
-        if (serverResult.streak >= 2) {
-          SensoryFeedback.triggerStreakMilestone(serverResult.streak);
+      if (response && response.correct !== undefined) {
+        if (response.correct) {
+          SoundEffects.playCorrect();
+          const newStreak = (response.streak !== undefined) ? response.streak : streak + 1;
+          setStreak(newStreak);
+          if (newStreak > bestStreak) setBestStreak(newStreak);
+
+          // Audio: Streak Fanfare on 2x, 3x, 5x
+          if (newStreak >= 2) {
+            SoundEffects.playStreakFanfare(newStreak);
+          }
+
+          // Adaptive AI Difficulty Engine:
+          // If student has answered 3 questions in a row quickly (streak >= 3),
+          // automatically trigger hard Algebra / Logic difficulty next!
+          if (newStreak >= 3) {
+            setAdaptiveHardTriggered(true);
+            SoundEffects.playHardUpgradeAlert();
+
+            // Reorder upcoming questions: pull hard Algebra/Logic problem to front
+            setQuestions((prevQuestions) => {
+              const remaining = [...prevQuestions];
+              const upcomingIndex = currentIndex + 1;
+              const hardCandidateIndex = remaining.findIndex(
+                (q, idx) =>
+                  idx > currentIndex &&
+                  (q.difficulty === 'hard' || q.topic === 'Algebra' || q.topic === 'Logic')
+              );
+              if (hardCandidateIndex > -1 && hardCandidateIndex !== upcomingIndex) {
+                const [targetQ] = remaining.splice(hardCandidateIndex, 1);
+                remaining.splice(upcomingIndex, 0, targetQ);
+              }
+              return remaining;
+            });
+          }
+
+          setCorrectCount((prev) => prev + 1);
+        } else {
+          // If Streak Shield is active, deflect the mistake and protect streak!
+          if (activeShield) {
+            SoundEffects.playShieldDeflect();
+            setActiveShield(false);
+            setShieldDeflectedNotice(true);
+            setTimeout(() => setShieldDeflectedNotice(false), 3000);
+          } else {
+            SoundEffects.playIncorrect();
+            setStreak(0);
+            setAdaptiveHardTriggered(false);
+          }
         }
-        setCorrectCount((prev) => prev + 1);
-        if (serverResult.streak > bestStreak) setBestStreak(serverResult.streak);
+
+        if (response.totalScore !== undefined) {
+          setScore(response.totalScore);
+        } else if (response.pointsAwarded) {
+          setScore((prev) => prev + response.pointsAwarded);
+        }
+
+        // Update Math Elo rating telemetry
+        if ((response as any).eloRating) {
+          setEloRating((response as any).eloRating);
+          setLastEloDelta((response as any).eloDelta);
+        }
       } else {
-        SensoryFeedback.triggerIncorrectAnswer();
+        // Fallback scoring
+        SoundEffects.playCorrect();
+        setScore((prev) => prev + 100);
+        setStreak((prev) => prev + 1);
+        setCorrectCount((prev) => prev + 1);
       }
     } catch (err) {
-      // Fallback local scoring if offline
-      const isCorrect = selectedOption === currentQuestion.answer;
-      if (isCorrect) {
-        SensoryFeedback.triggerCorrectAnswer();
-        const newStreak = streak + 1;
-        if (newStreak >= 2) {
-          SensoryFeedback.triggerStreakMilestone(newStreak);
-        }
-        const speedBonus = responseTimeMs < 4000 ? 20 : 0;
-        const streakBonus = newStreak * 10;
-        const pointsEarned = 100 + speedBonus + streakBonus;
-        setScore((prev) => prev + pointsEarned);
-        setStreak(newStreak);
-        setCorrectCount((prev) => prev + 1);
-        if (newStreak > bestStreak) setBestStreak(newStreak);
-      } else {
-        SensoryFeedback.triggerIncorrectAnswer();
-        setStreak(0);
-      }
+      console.warn('[LiveQuiz] Answer submission server fallback:', err);
+      SoundEffects.playCorrect();
+      setScore((prev) => prev + 100);
+      setStreak((prev) => prev + 1);
+      setCorrectCount((prev) => prev + 1);
     }
 
-    // Move to next question after brief 250ms transition
+    // Auto advance to next question after 800ms
     setTimeout(() => {
-      setSpeedBonusAwarded(false);
       if (currentIndex + 1 < totalQuestions) {
         setCurrentIndex((prev) => prev + 1);
         setSelectedOption(null);
+        setEliminatedOptions([]);
         setIsSubmitted(false);
+        setSpeedBonusAwarded(false);
         questionStartTimeRef.current = Date.now();
       } else {
         handleSprintFinish();
       }
-    }, 250);
+    }, 850);
   };
 
   if (!currentQuestion) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerContainer}>
-          <Text style={styles.emptyText}>Sprint Complete!</Text>
+          <Text style={styles.emptyText}>No questions available in this sprint.</Text>
         </View>
       </SafeAreaView>
     );
@@ -198,11 +342,27 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Top Header: Score & Streak Pills */}
+        {/* Top Header: Score, Elo Rating & Streak Pills */}
         <View style={styles.topMetricsRow}>
           <View style={styles.scoreTag}>
             <Ionicons name="flash" size={16} color={theme.colors.primary} />
             <Text style={styles.scoreText}>{formatPoints(score)} PTS</Text>
+          </View>
+
+          {/* Dynamic Math Elo Skill Rating Pill */}
+          <View style={styles.eloTag}>
+            <Ionicons name="stats-chart" size={14} color="#8B5CF6" />
+            <Text style={styles.eloText}>{eloRating} ELO</Text>
+            {lastEloDelta !== null && (
+              <Text
+                style={[
+                  styles.eloDeltaText,
+                  { color: lastEloDelta >= 0 ? theme.colors.green : theme.colors.danger },
+                ]}
+              >
+                {lastEloDelta >= 0 ? `+${lastEloDelta}` : lastEloDelta}
+              </Text>
+            )}
           </View>
 
           {streak > 1 ? (
@@ -221,9 +381,58 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
         <TimerCard
           remainingSeconds={remainingTime}
           totalSeconds={120}
-          label={isPaused ? 'BATTLE PAUSED' : '2-MINUTE SPRINT TIMER'}
+          label={isTimeFrozen ? '⏱️ CLOCK FROZEN (5s FREEZE)' : isPaused ? 'BATTLE PAUSED' : '2-MINUTE SPRINT TIMER'}
           style={styles.timerCard}
         />
+
+        {/* Ghost Racer • Mario Kart-Style Pace Benchmark Mini-Track */}
+        <GhostRacerTrack
+          currentQuestionIndex={currentIndex}
+          totalQuestions={totalQuestions}
+          remainingSeconds={remainingTime}
+          totalSeconds={120}
+        />
+
+        {/* Teacher Broadcast Announcement Banner */}
+        {teacherAnnouncement && (
+          <View style={styles.announcementBanner}>
+            <Ionicons name="megaphone" size={16} color="#B45309" />
+            <Text style={styles.announcementText} numberOfLines={2}>
+              TEACHER: "{teacherAnnouncement.message}"
+            </Text>
+          </View>
+        )}
+
+        {/* Head-to-Head Rivalry Telemetry Widget */}
+        {rivalryText ? (
+          <View style={styles.rivalryBar}>
+            <Ionicons name="shield-half-outline" size={14} color={theme.colors.purple} />
+            <Text style={styles.rivalryText} numberOfLines={1}>
+              {rivalryText}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Streak Shield Deflection Alert */}
+        {shieldDeflectedNotice && (
+          <View style={styles.shieldNoticeBanner}>
+            <Ionicons name="shield-checkmark" size={18} color="#059669" />
+            <Text style={styles.shieldNoticeText}>
+              🛡️ STREAK SHIELD DEFLECTED THE MISTAKE! Multiplier protected!
+            </Text>
+          </View>
+        )}
+
+        {/* Adaptive AI Hard Difficulty Upgrade Banner */}
+        {adaptiveHardTriggered && !isPaused && (
+          <View style={styles.hardUpgradeBanner}>
+            <Ionicons name="sparkles" size={18} color="#FFF" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hardUpgradeTitle}>🔥 3-STREAK AI SURGE: HARD DIFFICULTY UNLOCKED!</Text>
+              <Text style={styles.hardUpgradeSub}>Adaptive Engine switched to advanced Algebra & Multi-step Logic (+Bonus Elo)</Text>
+            </View>
+          </View>
+        )}
 
         {/* Paused by Teacher Banner */}
         {isPaused && (
@@ -266,7 +475,11 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* Topic & Difficulty Meta Bar */}
         <View style={styles.metaRow}>
           <Badge label={String(currentQuestion.topic)} variant="primary" size="sm" />
-          <Badge label={`${currentQuestion.difficulty.toUpperCase()} • +100 PTS`} variant="cyan" size="sm" />
+          <Badge
+            label={`${currentQuestion.difficulty.toUpperCase()} • ${currentQuestion.difficulty === 'hard' ? '+150 PTS (HARD)' : '+100 PTS'}`}
+            variant={currentQuestion.difficulty === 'hard' ? 'purple' : 'cyan'}
+            size="sm"
+          />
         </View>
 
         {/* Question Prompt Card */}
@@ -274,18 +487,33 @@ export const LiveQuizScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.questionText}>{currentQuestion.question}</Text>
         </Card>
 
+        {/* Tactical Battle Power-Ups Dock */}
+        <TacticalPowerUpDock
+          inventory={powerUpInventory}
+          activeShield={activeShield}
+          isTimeFrozen={isTimeFrozen}
+          onActivateShield={handleActivateShield}
+          onActivateFiftyFifty={handleActivateFiftyFifty}
+          onActivateTimeFreeze={handleActivateTimeFreeze}
+          disabled={isSubmitted || isPaused}
+        />
+
         {/* 4 Multiple Choice Answer Options (Never reveal answer during active sprint) */}
         <View style={styles.optionsContainer}>
-          {currentQuestion.options.map((option, idx) => (
-            <QuestionOption
-              key={idx}
-              index={idx}
-              text={option}
-              isSelected={selectedOption === option}
-              disabled={isSubmitted || isPaused}
-              onPress={() => setSelectedOption(option)}
-            />
-          ))}
+          {currentQuestion.options.map((option, idx) => {
+            const isEliminated = eliminatedOptions.includes(option);
+            return (
+              <QuestionOption
+                key={idx}
+                index={idx}
+                text={isEliminated ? `${option} ✖ (Eliminated)` : option}
+                isSelected={selectedOption === option}
+                disabled={isSubmitted || isPaused || isEliminated}
+                onPress={() => setSelectedOption(option)}
+                style={isEliminated ? { opacity: 0.35, backgroundColor: '#F1F5F9' } : undefined}
+              />
+            );
+          })}
         </View>
 
         {/* SUBMIT ANSWER CTA */}
@@ -331,41 +559,137 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
+    gap: 4,
   },
   scoreTag: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.primaryLight,
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
     borderColor: theme.colors.primary,
   },
   scoreText: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: theme.typography.sizes.xs,
     fontWeight: '800',
     color: theme.colors.primaryDark,
-    marginLeft: 4,
+    marginLeft: 3,
+  },
+  eloTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: '#C084FC',
+    gap: 3,
+  },
+  eloText: {
+    fontSize: theme.typography.sizes.xs,
+    fontWeight: '900',
+    color: '#6B21A8',
+  },
+  eloDeltaText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
   streakTag: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.orangeLight,
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: theme.borderRadius.sm,
     borderWidth: 1,
     borderColor: theme.colors.orange,
   },
   streakText: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: theme.typography.sizes.xs,
     fontWeight: '800',
     color: theme.colors.orangeDark,
-    marginLeft: 4,
+    marginLeft: 3,
   },
   timerCard: {
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
+  },
+  announcementBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.xs,
+  },
+  announcementText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#92400E',
+    flex: 1,
+  },
+  rivalryBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F3E8FF',
+    borderWidth: 1,
+    borderColor: '#D8B4FE',
+    borderRadius: theme.borderRadius.full,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.xs,
+  },
+  rivalryText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.colors.purple,
+  },
+  shieldNoticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.xs,
+  },
+  shieldNoticeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#065F46',
+    flex: 1,
+  },
+  hardUpgradeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#7C3AED',
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: theme.spacing.xs,
+  },
+  hardUpgradeTitle: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#FFF',
+    letterSpacing: 0.4,
+  },
+  hardUpgradeSub: {
+    fontSize: 9,
+    color: '#DDD6FE',
+    marginTop: 1,
   },
   pausedBanner: {
     flexDirection: 'row',
@@ -436,7 +760,7 @@ const styles = StyleSheet.create({
     minHeight: 120,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.xs,
     borderLeftWidth: 4,
     borderLeftColor: theme.colors.primary,
   },

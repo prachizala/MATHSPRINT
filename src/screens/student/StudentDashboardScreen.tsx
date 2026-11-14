@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +15,7 @@ import {
   Badge,
   FairCompetitionCard,
 } from '../../components/common';
+import { SoloSpeedModal } from '../../components/student/SoloSpeedModal';
 import { useAuth } from '../../context/AuthContext';
 import { mockStudentPerformance } from '../../data/mockData';
 import { SprintApi } from '../../services/api/sprintApi';
@@ -21,7 +23,8 @@ import { SprintApi } from '../../services/api/sprintApi';
 export const StudentDashboardScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<StudentStackParamList>>();
   const { user, switchRole } = useAuth();
-  const [performance, setPerformance] = React.useState<any>(mockStudentPerformance);
+  const [performance, setPerformance] = useState<any>(mockStudentPerformance);
+  const [showSoloModal, setShowSoloModal] = useState<boolean>(false);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -48,7 +51,7 @@ export const StudentDashboardScreen: React.FC = () => {
         subtitle={`Welcome back, ${user?.name || 'Aarav'}!`}
         rightElement={
           <Button
-            title="Teacher View"
+            title="Teacher ⇄"
             size="sm"
             variant="ghost"
             leftIcon={<Ionicons name="swap-horizontal" size={14} color={theme.colors.primary} />}
@@ -72,6 +75,7 @@ export const StudentDashboardScreen: React.FC = () => {
               <Ionicons name="flash" size={32} color={theme.colors.primary} />
             </View>
           </View>
+          
           <Button
             title="JOIN SPRINT NOW"
             variant="primary"
@@ -81,7 +85,29 @@ export const StudentDashboardScreen: React.FC = () => {
             fullWidth
             style={styles.joinBtn}
           />
+
+          <Button
+            title="⚡ SOLO SPEED BLITZ (OFFLINE)"
+            variant="outline"
+            size="md"
+            leftIcon={<Ionicons name="stopwatch-outline" size={18} color={theme.colors.primary} />}
+            onPress={() => setShowSoloModal(true)}
+            fullWidth
+            style={styles.soloBtn}
+          />
         </Card>
+
+        {/* Dynamic Math Elo Skill Rating Strip */}
+        <View style={styles.eloHeroBar}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="stats-chart" size={16} color="#7C3AED" />
+            <Text style={styles.eloHeroTitle}>Adaptive Math Elo</Text>
+          </View>
+          <View style={styles.eloHeroBadge}>
+            <Text style={styles.eloHeroValue}>{performance.eloRating || 1380} ELO</Text>
+            <Text style={styles.eloHeroTier}>• {performance.eloTier || 'Gold Tactician'}</Text>
+          </View>
+        </View>
 
         {/* 4 Core Stat Cards: Rank, Total Points, Accuracy, Best Streak */}
         <Text style={styles.sectionHeading}>Your Sprint Metrics</Text>
@@ -183,6 +209,12 @@ export const StudentDashboardScreen: React.FC = () => {
         {/* Fair Play Shield Section */}
         <FairCompetitionCard style={styles.fairPlay} />
       </ScrollView>
+
+      {/* Offline Solo Speed Blitz Practice Modal */}
+      <SoloSpeedModal
+        visible={showSoloModal}
+        onClose={() => setShowSoloModal(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -234,6 +266,11 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
     ...theme.shadows.sm,
   },
+  soloBtn: {
+    marginTop: theme.spacing.xs,
+    backgroundColor: '#FFFFFF',
+    borderColor: theme.colors.primary,
+  },
   sectionHeading: {
     fontSize: theme.typography.sizes.xs,
     fontWeight: '700',
@@ -283,5 +320,37 @@ const styles = StyleSheet.create({
   },
   fairPlay: {
     marginTop: theme.spacing.md,
+  },
+  eloHeroBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F3E8FF',
+    borderRadius: theme.borderRadius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: theme.spacing.xs,
+    borderWidth: 1,
+    borderColor: '#D8B4FE',
+  },
+  eloHeroTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#6B21A8',
+  },
+  eloHeroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  eloHeroValue: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#7C3AED',
+  },
+  eloHeroTier: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B21A8',
   },
 });

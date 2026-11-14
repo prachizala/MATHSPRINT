@@ -18,7 +18,9 @@ export class ApiClient {
   static setBaseUrl(newUrl: string): void {
     let clean = newUrl.trim();
     if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
-      clean = `http://${clean}`;
+      clean = clean.includes('onrender.com') || (!clean.startsWith('10.') && !clean.startsWith('192.') && !clean.startsWith('127.') && !clean.startsWith('localhost'))
+        ? `https://${clean}`
+        : `http://${clean}`;
     }
     if (!clean.endsWith('/api') && !clean.includes('/api/')) {
       clean = clean.replace(/\/+$/, '') + '/api';
@@ -33,7 +35,7 @@ export class ApiClient {
     const start = Date.now();
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
       const res = await fetch(healthUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
       const latencyMs = Date.now() - start;
@@ -71,35 +73,42 @@ export class ApiClient {
     }
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
       const response = await fetch(url, {
         ...options,
         headers,
-        signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
+      const contentType = response.headers.get('content-type');
+      let data: any = null;
 
-      const json = await response.json();
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { message: text };
+        }
+      }
+
       if (!response.ok) {
         return {
           success: false,
-          error: json.error || `Request failed with status ${response.status}`,
+          error: data?.error || data?.message || `HTTP ${response.status}: ${response.statusText}`,
         };
       }
 
       return {
         success: true,
-        data: json.data !== undefined ? json.data : json,
-        message: json.message,
+        data: data?.data !== undefined ? data.data : data,
+        message: data?.message,
       };
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        return { success: false, error: 'Request timed out' };
-      }
-      return { success: false, error: err.message || 'Network request error' };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Network request failed',
+      };
     }
   }
 
@@ -113,5 +122,17 @@ export class ApiClient {
       body: body ? JSON.stringify(body) : undefined,
       headers,
     });
+  }
+
+  static put<T>(endpoint: string, body?: any, headers?: Record<string, string>): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: body ? JSON.stringify(body) : undefined,
+      headers,
+    });
+  }
+
+  static delete<T>(endpoint: string, headers?: Record<string, string>): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: 'DELETE', headers });
   }
 }

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/authMiddleware';
 import { sendSuccess, sendError } from '../utils/responseHelper';
 import { FirestoreDataService } from '../services/firestoreDataService';
+import { EloRatingService } from '../services/eloRatingService';
 
 export const getStudentPerformanceController = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -99,8 +100,13 @@ export const getStudentPerformanceController = async (req: AuthenticatedRequest,
     const sortedTopics = [...topics].sort((a, b) => a.accuracy - b.accuracy);
     const weakest = sortedTopics[0];
 
+    const eloRating = (await FirestoreDataService.getStudentElo(studentId)) || 1340;
+    const eloTier = EloRatingService.getTier(eloRating);
+
     return sendSuccess(res, {
       studentId,
+      eloRating,
+      eloTier,
       totalSprintsPlayed: totalSprints,
       totalPoints,
       overallScore: totalPoints || 920,

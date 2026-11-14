@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  ScrollView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../theme';
@@ -27,7 +29,7 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({ visible, o
     if (visible) {
       const active = ApiClient.getBaseUrl();
       setCurrentUrl(active);
-      setCustomInput(active.replace('/api', '').replace('http://', ''));
+      setCustomInput(active);
       runHealthCheck(active);
     }
   }, [visible]);
@@ -43,12 +45,11 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({ visible, o
     }
   };
 
-  const handleApplyPreset = (host: string) => {
-    const fullUrl = `http://${host}:5000/api`;
-    ApiClient.setBaseUrl(fullUrl);
+  const handleApplyPreset = (url: string) => {
+    ApiClient.setBaseUrl(url);
     const updated = ApiClient.getBaseUrl();
     setCurrentUrl(updated);
-    setCustomInput(`${host}:5000`);
+    setCustomInput(updated);
     runHealthCheck(updated);
   };
 
@@ -57,6 +58,7 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({ visible, o
     ApiClient.setBaseUrl(customInput.trim());
     const updated = ApiClient.getBaseUrl();
     setCurrentUrl(updated);
+    setCustomInput(updated);
     runHealthCheck(updated);
   };
 
@@ -75,103 +77,111 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({ visible, o
             </TouchableOpacity>
           </View>
 
-          {/* Active URL Status */}
-          <View style={styles.currentUrlBox}>
-            <Text style={styles.boxLabel}>CURRENT API BASE URL</Text>
-            <Text style={styles.boxUrl} numberOfLines={2}>
-              {currentUrl}
-            </Text>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Active URL Status */}
+            <View style={styles.currentUrlBox}>
+              <Text style={styles.boxLabel}>CURRENT API BASE URL</Text>
+              <Text style={styles.boxUrl} numberOfLines={2}>
+                {currentUrl}
+              </Text>
 
-            <View style={styles.statusRow}>
-              {testing ? (
-                <View style={styles.statusPill}>
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                  <Text style={[styles.statusText, { color: theme.colors.primary }]}>Testing connection...</Text>
-                </View>
-              ) : status?.ok ? (
-                <View style={[styles.statusPill, styles.statusSuccess]}>
-                  <Ionicons name="checkmark-circle" size={16} color={theme.colors.green} />
-                  <Text style={[styles.statusText, { color: theme.colors.green }]}>
-                    Online ({status.latencyMs}ms)
-                  </Text>
-                </View>
-              ) : status ? (
-                <View style={[styles.statusPill, styles.statusError]}>
-                  <Ionicons name="alert-circle" size={16} color={theme.colors.danger} />
-                  <Text style={[styles.statusText, { color: theme.colors.danger }]}>
-                    Offline: {status.error || 'Unreachable'}
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.statusPill}>
-                  <Text style={[styles.statusText, { color: theme.colors.textMuted }]}>Status unknown</Text>
-                </View>
-              )}
+              <View style={styles.statusRow}>
+                {testing ? (
+                  <View style={styles.statusPill}>
+                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                    <Text style={[styles.statusText, { color: theme.colors.primary }]}>Testing connection...</Text>
+                  </View>
+                ) : status?.ok ? (
+                  <View style={[styles.statusPill, styles.statusSuccess]}>
+                    <Ionicons name="checkmark-circle" size={16} color={theme.colors.green} />
+                    <Text style={[styles.statusText, { color: theme.colors.green }]}>
+                      Online ({status.latencyMs}ms)
+                    </Text>
+                  </View>
+                ) : status ? (
+                  <View style={[styles.statusPill, styles.statusError]}>
+                    <Ionicons name="alert-circle" size={16} color={theme.colors.danger} />
+                    <Text style={[styles.statusText, { color: theme.colors.danger }]} numberOfLines={2}>
+                      Offline: {status.error}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <TouchableOpacity
+                  style={styles.retryBtn}
+                  onPress={() => runHealthCheck()}
+                  disabled={testing}
+                >
+                  <Ionicons name="refresh" size={14} color={theme.colors.primary} />
+                  <Text style={styles.retryBtnText}>Test Ping</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Quick Presets */}
+            <Text style={styles.presetsLabel}>QUICK CONNECT PRESETS</Text>
+            <View style={styles.presetGrid}>
+              <TouchableOpacity
+                style={[styles.presetChip, styles.presetChipRender]}
+                onPress={() => handleApplyPreset('https://mathsprint-backend.onrender.com/api')}
+              >
+                <Ionicons name="cloud" size={15} color="#0284C7" />
+                <Text style={[styles.presetChipText, { color: '#0284C7', fontWeight: '700' }]}>
+                  Render Cloud (Live)
+                </Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => runHealthCheck()}
-                disabled={testing}
-                style={styles.pingBtn}
+                style={styles.presetChip}
+                onPress={() => handleApplyPreset('http://192.168.1.100:5000/api')}
               >
-                <Ionicons name="refresh" size={14} color={theme.colors.primary} />
-                <Text style={styles.pingBtnText}>Test Ping</Text>
+                <Ionicons name="wifi" size={14} color={theme.colors.cyan} />
+                <Text style={styles.presetChipText}>Laptop WiFi LAN</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.presetChip}
+                onPress={() => handleApplyPreset('http://10.0.2.2:5000/api')}
+              >
+                <Ionicons name="phone-portrait-outline" size={14} color={theme.colors.purple} />
+                <Text style={styles.presetChipText}>Android AVD (10.0.2.2)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.presetChip}
+                onPress={() => handleApplyPreset('http://127.0.0.1:5000/api')}
+              >
+                <Ionicons name="laptop-outline" size={14} color={theme.colors.orange} />
+                <Text style={styles.presetChipText}>Localhost</Text>
               </TouchableOpacity>
             </View>
-          </View>
 
-          {/* Quick Presets */}
-          <Text style={styles.presetsLabel}>QUICK CONNECT PRESETS</Text>
-          <View style={styles.presetGrid}>
-            <TouchableOpacity
-              style={styles.presetChip}
-              onPress={() => handleApplyPreset('192.168.113.114')}
-            >
-              <Ionicons name="wifi" size={14} color={theme.colors.cyan} />
-              <Text style={styles.presetChipText}>Laptop WiFi LAN</Text>
+            {/* Custom IP Entry */}
+            <Text style={styles.presetsLabel}>ENTER CUSTOM BACKEND URL / RENDER HOST</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                value={customInput}
+                onChangeText={setCustomInput}
+                placeholder="https://your-service.onrender.com"
+                placeholderTextColor={theme.colors.textMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity style={styles.applyBtn} onPress={handleApplyCustom}>
+                <Text style={styles.applyBtnText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.hintText}>
+              Tip: When deployed on Render, paste your live URL above (e.g. https://mathsprint-xyz.onrender.com). Changes take effect instantly without restarting the app!
+            </Text>
+
+            {/* Close button */}
+            <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
+              <Text style={styles.doneBtnText}>Done</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.presetChip}
-              onPress={() => handleApplyPreset('10.0.2.2')}
-            >
-              <Ionicons name="phone-portrait-outline" size={14} color={theme.colors.purple} />
-              <Text style={styles.presetChipText}>Android AVD (10.0.2.2)</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.presetChip}
-              onPress={() => handleApplyPreset('127.0.0.1')}
-            >
-              <Ionicons name="laptop-outline" size={14} color={theme.colors.orange} />
-              <Text style={styles.presetChipText}>Localhost</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Custom IP Entry */}
-          <Text style={styles.presetsLabel}>CUSTOM HOST / IP</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              value={customInput}
-              onChangeText={setCustomInput}
-              placeholder="e.g. 192.168.1.5:5000"
-              placeholderTextColor={theme.colors.textMuted}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity style={styles.applyBtn} onPress={handleApplyCustom}>
-              <Text style={styles.applyBtnText}>Apply</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.hintText}>
-            Changes take effect immediately for all live quiz submissions and teacher controls without restarting the app.
-          </Text>
-
-          {/* Close button */}
-          <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
-            <Text style={styles.doneBtnText}>Done</Text>
-          </TouchableOpacity>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -181,25 +191,25 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({ visible, o
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.base,
+    padding: 20,
   },
   container: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 20,
     width: '100%',
-    maxWidth: 420,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    maxWidth: 440,
+    maxHeight: '85%',
+    ...theme.shadows.lg,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.md,
+    alignItems: 'center',
+    marginBottom: 16,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -207,107 +217,111 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerTitle: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: theme.colors.textPrimary,
   },
   closeBtn: {
     padding: 4,
   },
   currentUrlBox: {
-    backgroundColor: theme.colors.background,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
+    borderColor: '#E2E8F0',
+    marginBottom: 16,
   },
   boxLabel: {
     fontSize: 10,
     fontWeight: '700',
     color: theme.colors.textMuted,
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
     marginBottom: 4,
   },
   boxUrl: {
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: '600',
+    fontSize: 13,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     color: theme.colors.primary,
-    fontFamily: 'monospace',
+    fontWeight: '600',
     marginBottom: 10,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
     flex: 1,
   },
   statusSuccess: {
-    backgroundColor: 'rgba(52, 199, 89, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: theme.borderRadius.full,
-    alignSelf: 'flex-start',
+    backgroundColor: '#ECFDF5',
   },
   statusError: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: theme.borderRadius.full,
-    alignSelf: 'flex-start',
+    backgroundColor: '#FEF2F2',
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
+    flexShrink: 1,
   },
-  pingBtn: {
+  retryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingVertical: 5,
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: theme.borderRadius.full,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: theme.colors.primary,
+    backgroundColor: '#EFF6FF',
   },
-  pingBtnText: {
-    fontSize: 12,
+  retryBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
     color: theme.colors.primary,
-    fontWeight: '600',
   },
   presetsLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
-    color: theme.colors.textMuted,
-    letterSpacing: 0.8,
+    color: theme.colors.textSecondary,
     marginBottom: 8,
+    letterSpacing: 0.3,
   },
   presetGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: theme.spacing.md,
+    marginBottom: 16,
   },
   presetChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: theme.colors.background,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: theme.borderRadius.sm,
+    borderColor: '#E2E8F0',
+  },
+  presetChipRender: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#BAE6FD',
   },
   presetChipText: {
     fontSize: 12,
-    color: theme.colors.textSecondary,
     fontWeight: '600',
+    color: theme.colors.textPrimary,
   },
   inputRow: {
     flexDirection: 'row',
@@ -316,42 +330,42 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.borderRadius.sm,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
     color: theme.colors.textPrimary,
-    fontSize: theme.typography.sizes.sm,
   },
   applyBtn: {
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: 14,
+    borderRadius: 10,
+    paddingHorizontal: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: theme.borderRadius.sm,
   },
   applyBtnText: {
-    color: '#000',
+    color: '#FFF',
+    fontSize: 13,
     fontWeight: '700',
-    fontSize: 12,
   },
   hintText: {
     fontSize: 11,
     color: theme.colors.textMuted,
     lineHeight: 16,
-    marginBottom: theme.spacing.md,
+    marginBottom: 16,
   },
   doneBtn: {
-    backgroundColor: theme.colors.border,
-    paddingVertical: 10,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: theme.borderRadius.sm,
   },
   doneBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
     color: theme.colors.textPrimary,
-    fontWeight: '600',
-    fontSize: theme.typography.sizes.sm,
   },
 });

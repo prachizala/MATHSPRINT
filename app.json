@@ -6,20 +6,20 @@
     "description": "High-intensity 2-minute competitive classroom math battle arena with real-time telemetry, learning analytics, and adaptive practice.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
-      "backgroundColor": "#2563EB",
-      "resizeMode": "contain"
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0F19"
     },
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "package": "com.prachizala.mathsprint",
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#0B0F19",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false
     },

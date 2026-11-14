@@ -33,7 +33,7 @@ export const createApp = () => {
 
 export const startServer = (port = env.PORT) => {
   const app = createApp();
-  const server = app.listen(port, () => {
+  const server = app.listen(port, '0.0.0.0', () => {
     console.log(`⚡ [MATHSPRINT Backend] Running on http://localhost:${port}`);
     console.log(`📡 [MATHSPRINT Backend] Health check: http://localhost:${port}/api/health`);
   });

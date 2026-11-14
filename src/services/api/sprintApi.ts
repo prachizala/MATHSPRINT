@@ -145,6 +145,24 @@ export class SprintApi {
     return { sprintId, status: 'LIVE' };
   }
 
+  // 6e. Teacher: Broadcast Announcement
+  static async sendAnnouncement(sprintId: string, message: string): Promise<any> {
+    const res = await ApiClient.post(`/sprints/${sprintId}/announcement`, { message });
+    if (res.success && res.data) {
+      return res.data;
+    }
+    return { message, timestamp: Date.now() };
+  }
+
+  // 6f. Get Active Announcement
+  static async getAnnouncement(sprintId: string): Promise<any> {
+    const res = await ApiClient.get(`/sprints/${sprintId}/announcement`);
+    if (res.success && res.data) {
+      return res.data;
+    }
+    return null;
+  }
+
   // 7. Get Sprint Details
   static async getSprint(sprintId: string): Promise<any> {
     const res = await ApiClient.get(`/sprints/${sprintId}`);
