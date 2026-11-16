@@ -3,6 +3,14 @@
 # dependencies
 node_modules/
 
+# AI Agent & Assistant Configurations
+.gemini/
+.agent/
+.claude/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+
 # Expo
 .expo/
 /dist/
